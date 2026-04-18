@@ -244,6 +244,29 @@ def _manejar_truco(engine: TrucoEngine, ronda, cantor: str, nivel: str) -> None:
 
 def main() -> None:
     """Punto de entrada del juego."""
+    from config import INTERFAZ
+
+    if INTERFAZ == "gui":
+        main_gui()
+    else:
+        main_cli()
+
+
+def main_gui() -> None:
+    """Inicia el juego con interfaz gráfica (Pygame)."""
+    from truco.gui import TrucoGUI
+
+    nombre = "Jugador"
+    humano = JugadorHumano(nombre)
+    cpu = JugadorAI("CPU", RandomAI())
+    engine = TrucoEngine(humano, cpu)
+
+    gui = TrucoGUI(engine)
+    gui.run()
+
+
+def main_cli() -> None:
+    """Inicia el juego con interfaz de terminal."""
     ui.limpiar_pantalla()
     ui.mostrar_titulo()
 
