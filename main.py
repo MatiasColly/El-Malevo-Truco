@@ -29,11 +29,11 @@ def jugar_ronda(engine: TrucoEngine) -> None:
         else:
             _turno_cpu(engine, ronda, turno_jugador)
 
-        if ronda.terminada:
+        if ronda.terminada or engine.juego_terminado():
             break
 
-    # Fin de la ronda
-    if ronda.ganador_ronda:
+    # Fin de la ronda: no sumar puntos de truco si ya ganó alguien (ej: envido)
+    if ronda.ganador_ronda and not engine.juego_terminado():
         puntos = engine.finalizar_ronda(ronda.ganador_ronda)
         ui.mostrar_ganador_ronda(ronda.ganador_ronda, puntos)
 

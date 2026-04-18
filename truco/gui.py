@@ -442,7 +442,6 @@ class TrucoGUI:
             self._set_mensaje(f"{self.ronda.ganador_ronda} gana la ronda (+{puntos} pts)", 3.0)
         self.estado = Estado.RONDA_FIN
         self.show_timer = 2.5
-
     # ── Envido ────────────────────────────────────────────
 
     def _iniciar_envido(self, cantor: str, tipo: str) -> None:
@@ -514,6 +513,8 @@ class TrucoGUI:
             resultado["nombre_j2"] = self.engine.jugador2.nombre
             self.resultado_envido = resultado
             self.engine.sumar_puntos(resultado["ganador"], resultado["puntos"])
+            if self._verificar_game_over():
+                return
 
             if aceptado:
                 msg = (f"Envido: {resultado['nombre_j1']}={resultado['envido_j1']}, "
@@ -701,6 +702,15 @@ class TrucoGUI:
 
     # ── Mazo ──────────────────────────────────────────────
 
+    def _verificar_game_over(self) -> bool:
+        """Si alguien llegó a 30, transiciona a GAME_OVER inmediatamente."""
+        if self.engine.juego_terminado():
+            ganador = self.engine.ganador_juego()
+            self._set_mensaje(f"¡{ganador.nombre} gana el partido! 🎉", 0)
+            self.estado = Estado.GAME_OVER
+            return True
+        return False
+
     def _ir_al_mazo(self, nombre: str) -> None:
         self._set_mensaje(f"{nombre} se va al mazo.", 2.5)
 
@@ -709,13 +719,15 @@ class TrucoGUI:
             self.engine.sumar_puntos(oponente, 1)
             self.engine.envido_terminado = True
             self._set_mensaje(f"{nombre} se va al mazo. {oponente} gana 1 pt de envido.", 3.0)
+            if self._verificar_game_over():
+                return
 
         self.ronda.ir_al_mazo(nombre)
         self.estado = Estado.SHOWING_MAZO
         self.show_timer = 2.0
 
     def _continuar_despues_mazo(self) -> None:
-        if self.ronda.ganador_ronda:
+        if self.ronda.ganador_ronda and not self.engine.juego_terminado():
             puntos = self.engine.finalizar_ronda(self.ronda.ganador_ronda)
             self._set_mensaje(
                 f"{self.ronda.ganador_ronda} gana la ronda (+{puntos} pts)", 3.0
