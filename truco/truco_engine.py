@@ -285,11 +285,22 @@ class TrucoEngine:
 
         acciones = self._acciones_disponibles(perspectiva)
 
+        bazas = []
+        if self.ronda:
+            for baza in self.ronda.bazas:
+                if baza.parda:
+                    bazas.append("parda")
+                elif baza.ganador == perspectiva:
+                    bazas.append("yo")
+                else:
+                    bazas.append("oponente")
+
         return {
             "mano": mano_cartas,
             "cartas_jugadas_propias": cartas_jugadas_propias,
             "cartas_jugadas_oponente": cartas_jugadas_oponente,
             "carta_oponente_mesa": carta_oponente_mesa,
+            "bazas": bazas,
             "puntos_propios": jugador.puntos,
             "puntos_oponente": oponente.puntos,
             "envido_propio": jugador.calcular_envido(),

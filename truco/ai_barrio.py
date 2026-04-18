@@ -33,6 +33,16 @@ from .ai_interface import AIInterface
 #                                                baza actual (None si aún
 #                                                no jugó en esta baza)
 #
+# BAZAS JUGADAS:
+#   gs["bazas"]  list[str]  — resultado de cada baza disputada hasta ahora,
+#       desde tu perspectiva: "yo", "oponente" o "parda".
+#       Lista vacía si aún no se completó ninguna baza.
+#   Ejemplos:
+#       gs["bazas"] == []                            → primera baza en curso
+#       gs["bazas"] == ["oponente"]                  → oponente ganó la 1ra
+#       gs["bazas"] == ["parda", "yo"]               → 1ra parda, 2da para vos
+#       gs["bazas"] == ["oponente", "parda", "yo"]   → 1ra oponente, 2da parda, 3ra vos
+#
 # PUNTAJES:
 #   gs["puntos_propios"]   int  — tus puntos actuales
 #   gs["puntos_oponente"]  int  — puntos del oponente
@@ -69,17 +79,23 @@ class BarrioAI(AIInterface):
         acciones = game_state.get("acciones_disponibles", [])
         cartas_jugadas_oponente = game_state.get("cartas_jugadas_oponente", [])
         ultima_carta_oponente = cartas_jugadas_oponente[-1:]
-        es_mano = game_state.get("es_mano", False)
+        soy_mano = game_state.get("es_mano", False)
+        bazas = game_state.get("bazas", [])
 
-        # Baza 1, yo mano:
-        if len(mano) == 3:
+        print("Mano", mano)
+        print("Soy Mano", soy_mano)
+        print("Cartas oponente", cartas_jugadas_oponente)
 
-            # Evaluo envido
+        # ------------- Baza 1: ------------- #
+
+        if len(bazas) == 0:
+
+            # ---- Evalúo envido ---- #
             if [a for a in acciones if a == "envido" or a == "real_envido" or a == "falta_envido"]:
 
                 envido_propio = game_state.get("envido_propio", 0)
-                es_mano = game_state.get("es_mano", False)
-                prob_cantar_envido = self._envido_propio_a_probabilidades(envido_propio, es_mano)
+                prob_cantar_envido = self._envido_propio_a_probabilidades(envido_propio, soy_mano)
+                print("Probabilidad de cantar envido:", prob_cantar_envido, ", puntos envido:", envido_propio)
 
                 if self._probabilidad_a_decision(prob_cantar_envido):
                     if self._probabilidad_a_decision(0.25):
@@ -87,12 +103,55 @@ class BarrioAI(AIInterface):
                     else:
                         return {"tipo": "envido"}
 
-            if es_mano:
+            if soy_mano:
                 carta = self._elegir_primera_carta(mano)
             else:
-                carta = self._elegir_primera_carta(mano)
+                la_mata, carta = self._matar_con_lo_justo(mano, ultima_carta_oponente)
 
             return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, carta)}
+
+        # ------------- Baza 2: ------------- #
+
+        elif len(bazas) == 1:
+
+            # Si perdí primera o mato o me voy al mazo
+            if bazas[0] == "oponente":
+                la_mata, carta = self._matar_con_lo_justo(mano, ultima_carta_oponente)
+                if la_mata:
+                    return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, carta)}
+                else:
+                    return {"tipo": "mazo"}
+
+            # Si fué pardas: si soy mano, juego la mas alta. Si soy pie, mato o me voy al mazo
+            elif bazas[0] == "pardas":
+                if soy_mano:
+                    mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
+                    return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, mano_ordenada[-1])}
+                else:
+                    la_mata, carta = self._matar_con_lo_justo(mano, ultima_carta_oponente)
+                    if la_mata:
+                        # Aca va truco
+                        return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, carta)}
+                    else:
+                        return {"tipo": "mazo"}
+
+            else:
+                carta = self._elegir_segunda_carta(mano)
+                return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, carta)}
+
+        # ------------- Baza 3: ------------- #
+
+        else:
+            if soy_mano:
+                return {"tipo": "jugar_carta", "indice": 0}
+            else:
+                la_mata, carta = self._matar_con_lo_justo(mano, ultima_carta_oponente)
+                if la_mata:
+                    # Aca va truco
+                    return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, carta)}
+                else:
+                    return {"tipo": "mazo"}
+
 
         # 80% de las veces juega carta, 20% intenta cantar algo
         if mano and random.random() < 0.8:
@@ -112,7 +171,7 @@ class BarrioAI(AIInterface):
 
         return {"tipo": "mazo"}
 
-    # ----------------- Seccion logica de envido -------------------------- #
+    # ----------------- Sección lógica del envido -------------------------- #
 
     def responder_envido(self, game_state: dict) -> dict:
         # 60% quiero, 20% no quiero, 20% subir
@@ -182,10 +241,13 @@ class BarrioAI(AIInterface):
     def _elegir_primera_carta(self, mano) -> dict:
         mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
         if self._probabilidad_a_decision(0.4):
+            print("Elijo la carta mas alta")
             return mano_ordenada[2]
         elif self._probabilidad_a_decision(0.66666):
+            print("Elijo la carta mas baja")
             return mano_ordenada[0]
-        else
+        else:
+            print("Elijo la carta del medio")
             return mano_ordenada[1]
 
     """ Lógica básica: matamos con lo justo, si no podemos jugamos la mas baja """
@@ -193,7 +255,7 @@ class BarrioAI(AIInterface):
     def _matar_con_lo_justo(mano, ultima_carta_oponente) -> list:
         mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
         for carta in mano_ordenada:
-            if carta["poder"] > ultima_carta_oponente:
+            if carta["poder"] > ultima_carta_oponente[0]["poder"]:
                 return [True, carta]
         return [False, mano_ordenada[0]]
 
@@ -203,4 +265,23 @@ class BarrioAI(AIInterface):
                 return i
         return -1
 
+    """ Lógica: 
+        - Si la mas alta es un 3 o mas, no la jugamos, por que hacemos que el oponente se valla rápido
+        - Jugamos 30% de la veces la carta mas alta (peor opción, pero evita ser predecible)
+        - Jugamos 70% de las veces la carta mas baja (mejor opción, permite saber que tiene la otra persona y definir
+        la partida)
+        """
+    def _elegir_segunda_carta(self, mano) -> dict:
+        mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
+
+        if mano_ordenada[1]["poder"] >= 10:
+            print("Dejo la grande, voy por la baja")
+            return mano_ordenada[0]
+
+        elif self._probabilidad_a_decision(0.3):
+            print("Elijo la carta mas alta")
+            return mano_ordenada[1]
+        else:
+            print("Elijo la carta mas baja")
+            return mano_ordenada[0]
 
