@@ -12,12 +12,87 @@ import random
 from .ai_interface import AIInterface
 
 
+
+# ── Referencia de game_state para el desarrollador ───────────────────────────
+#
+# game_state es un dict que recibís en elegir_accion(), responder_envido() y
+# responder_truco(). Todos los valores son de solo lectura (no modificar).
+#
+# CARTAS EN MANO (las tuyas, aún no jugadas):
+#   gs["mano"]  →  list[dict], cada dict tiene:
+#       carta["numero"]       int   — 1-7, 10(sota), 11(caballo), 12(rey)
+#       carta["palo"]         str   — "espada", "basto", "copa", "oro"
+#       carta["poder"]        int   — jerarquía de truco (mayor = más fuerte)
+#       carta["valor_envido"] int   — 0 para figuras (10-12), número si no
+#   Ejemplo: mano = gs["mano"]; mejor = max(mano, key=lambda c: c["poder"])
+#
+# CARTAS YA JUGADAS:
+#   gs["cartas_jugadas_propias"]   list[dict]  — las que vos ya tiraste
+#   gs["cartas_jugadas_oponente"]  list[dict]  — las que tiró el oponente
+#   gs["carta_oponente_mesa"]      dict | None — carta del oponente en la
+#                                                baza actual (None si aún
+#                                                no jugó en esta baza)
+#
+# PUNTAJES:
+#   gs["puntos_propios"]   int  — tus puntos actuales
+#   gs["puntos_oponente"]  int  — puntos del oponente
+#   gs["puntos_objetivo"]  int  — 30 (constante)
+#   gs["envido_propio"]    int  — tu mejor envido (20+ si tenés par del mismo palo)
+#
+# ESTADO DE LA RONDA:
+#   gs["es_mano"]           bool  — True si sos mano (jugás primero)
+#   gs["es_mi_turno"]       bool  — True si te toca jugar ahora
+#   gs["nivel_truco"]       int   — 0=sin cantar, 1=truco, 2=retruco, 3=vale4
+#   gs["envido_disponible"] bool  — True si todavía se puede cantar envido
+#   gs["puede_cantar_truco"] bool — True si podés subir el truco ahora
+#
+# ACCIONES DISPONIBLES en este turno:
+#   gs["acciones_disponibles"]  list[str]
+#   Valores posibles: "jugar_carta", "envido", "real_envido", "falta_envido",
+#                     "truco", "retruco", "vale cuatro", "mazo"
+#
+# RETORNOS esperados:
+#   elegir_accion   → {"tipo": "jugar_carta", "indice": 0}  (0-based)
+#                     {"tipo": "envido"} / {"tipo": "truco"} / {"tipo": "mazo"} / etc.
+#   responder_envido → {"tipo": "quiero"} | {"tipo": "no_quiero"}
+#                      | {"tipo": "envido"} | {"tipo": "real_envido"} | {"tipo": "falta_envido"}
+#   responder_truco  → {"tipo": "quiero"} | {"tipo": "no_quiero"}
+#                      | {"tipo": "retruco"} | {"tipo": "vale cuatro"}
+# ─────────────────────────────────────────────────────────────────────────────
+
+# TODO Agregar el evaluate truco, no olvidar
 class BarrioAI(AIInterface):
-    """IA de barrio, hecha a mano, tal como guacho viejo y salvaje."""
+    """IA de barrio, hecha a mano, a la vieja escuela."""
 
     def elegir_accion(self, game_state: dict) -> dict:
         mano = game_state.get("mano", [])
         acciones = game_state.get("acciones_disponibles", [])
+        cartas_jugadas_oponente = game_state.get("cartas_jugadas_oponente", [])
+        ultima_carta_oponente = cartas_jugadas_oponente[-1:]
+        es_mano = game_state.get("es_mano", False)
+
+        # Baza 1, yo mano:
+        if len(mano) == 3:
+
+            # Evaluo envido
+            if [a for a in acciones if a == "envido" or a == "real_envido" or a == "falta_envido"]:
+
+                envido_propio = game_state.get("envido_propio", 0)
+                es_mano = game_state.get("es_mano", False)
+                prob_cantar_envido = self._envido_propio_a_probabilidades(envido_propio, es_mano)
+
+                if self._probabilidad_a_decision(prob_cantar_envido):
+                    if self._probabilidad_a_decision(0.25):
+                        return {"tipo": "real_envido"}
+                    else:
+                        return {"tipo": "envido"}
+
+            if es_mano:
+                carta = self._elegir_primera_carta(mano)
+            else:
+                carta = self._elegir_primera_carta(mano)
+
+            return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, carta)}
 
         # 80% de las veces juega carta, 20% intenta cantar algo
         if mano and random.random() < 0.8:
@@ -37,6 +112,8 @@ class BarrioAI(AIInterface):
 
         return {"tipo": "mazo"}
 
+    # ----------------- Seccion logica de envido -------------------------- #
+
     def responder_envido(self, game_state: dict) -> dict:
         # 60% quiero, 20% no quiero, 20% subir
         r = random.random()
@@ -48,6 +125,38 @@ class BarrioAI(AIInterface):
             if game_state.get("envido_disponible", False):
                 return {"tipo": random.choice(["real_envido", "falta_envido"])}
             return {"tipo": "quiero"}
+
+    """ Lógica: 
+            - Siendo mano: 7% es la probabilidad de que mienta si no tiene nada. Escalamos linealmente para que mientras 
+            mas puntos tenga, mas chance de que cante envido. No lo ponemos al 100% para 33 asi lo hacemos ir a la pesca
+            algunas veces
+            - Siendo pie: Asigno mas probabilidades a la mentira ya que el otro no canto nada (15 %). Escalo lineamente
+            hasta 100% esta vez por que no me quiero comer los puntos. A partir de 30 canto siempre por que son 
+            excelentes puntos
+    """
+    def _envido_propio_a_probabilidades(self, puntos: int, soy_mano: bool) -> float:
+        if soy_mano:
+            if puntos <= 7:
+                return 0.07
+            else:
+                return self.interpolate(puntos, 20, 33, 0.07, 0.85)
+        else:
+            if puntos <= 7:
+                return 0.15
+            elif puntos <= 30:
+                return self.interpolate(puntos, 20, 30, 0.15, 1.0)
+            else:
+                return 1.0
+
+    @staticmethod
+    def interpolate(value, in_min, in_max, out_min, out_max):
+        return out_min + (value - in_min) * (out_max - out_min) / (in_max - in_min)
+
+    @staticmethod
+    def _probabilidad_a_decision(probabilidad: float) -> bool:
+        return random.random() < probabilidad
+
+    # ----------------- Seccion logica de mano/truco -------------------------- #
 
     def responder_truco(self, game_state: dict) -> dict:
         # 60% quiero, 25% no quiero, 15% subir
@@ -64,3 +173,34 @@ class BarrioAI(AIInterface):
                 elif nivel == 1:
                     return {"tipo": "vale cuatro"}
             return {"tipo": "quiero"}
+
+    """ Lógica: 
+    - Jugamos 40% de la veces la carta mas alta (opción que mas gana pero después no se puede mentir mucho). 
+    - Jugamos 20% de las veces la carta del medio (peor opción, pero evita ser predecible)
+    - Jugamos 40% de las veces la carta mas baja (opción decente, permite juga a amenazar mas adelante)
+    """
+    def _elegir_primera_carta(self, mano) -> dict:
+        mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
+        if self._probabilidad_a_decision(0.4):
+            return mano_ordenada[2]
+        elif self._probabilidad_a_decision(0.66666):
+            return mano_ordenada[0]
+        else
+            return mano_ordenada[1]
+
+    """ Lógica básica: matamos con lo justo, si no podemos jugamos la mas baja """
+    @staticmethod
+    def _matar_con_lo_justo(mano, ultima_carta_oponente) -> list:
+        mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
+        for carta in mano_ordenada:
+            if carta["poder"] > ultima_carta_oponente:
+                return [True, carta]
+        return [False, mano_ordenada[0]]
+
+    def _carta_a_indice (self, mano, carta) -> int:
+        for i, c in enumerate(mano):
+            if c == carta:
+                return i
+        return -1
+
+

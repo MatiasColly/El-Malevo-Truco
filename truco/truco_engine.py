@@ -292,6 +292,7 @@ class TrucoEngine:
             "carta_oponente_mesa": carta_oponente_mesa,
             "puntos_propios": jugador.puntos,
             "puntos_oponente": oponente.puntos,
+            "envido_propio": jugador.calcular_envido(),
             "nivel_truco": self.nivel_truco,
             "envido_disponible": self.puede_cantar_envido(),
             "puede_cantar_truco": self.puede_cantar_truco(perspectiva),
