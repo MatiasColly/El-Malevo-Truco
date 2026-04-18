@@ -295,6 +295,17 @@ class TrucoEngine:
                 else:
                     bazas.append("oponente")
 
+        # Quién juega primero en la baza actual
+        if self.ronda:
+            baza_actual = self.ronda.baza_actual
+            if baza_actual.cartas:
+                primero_baza = next(iter(baza_actual.cartas))
+            else:
+                primero_baza = self.ronda.turno
+            es_mano_baza = perspectiva == primero_baza
+        else:
+            es_mano_baza = perspectiva == self.mano_nombre
+
         return {
             "mano": mano_cartas,
             "cartas_jugadas_propias": cartas_jugadas_propias,
@@ -307,7 +318,8 @@ class TrucoEngine:
             "nivel_truco": self.nivel_truco,
             "envido_disponible": self.puede_cantar_envido(),
             "puede_cantar_truco": self.puede_cantar_truco(perspectiva),
-            "es_mano": perspectiva == self.mano_nombre,
+            "es_mano": es_mano_baza,
+            "es_mano_ronda": perspectiva == self.mano_nombre,
             "es_mi_turno": self.ronda.turno == perspectiva if self.ronda else False,
             "acciones_disponibles": acciones,
             "puntos_objetivo": PUNTOS_OBJETIVO,

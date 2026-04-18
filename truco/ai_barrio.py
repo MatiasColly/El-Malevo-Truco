@@ -50,7 +50,10 @@ from .ai_interface import AIInterface
 #   gs["envido_propio"]    int  — tu mejor envido (20+ si tenés par del mismo palo)
 #
 # ESTADO DE LA RONDA:
-#   gs["es_mano"]           bool  — True si sos mano (jugás primero)
+#   gs["es_mano"]           bool  — True si jugás primero en la BAZA ACTUAL
+#                                   (cambia cada baza según quién la ganó)
+#   gs["es_mano_ronda"]     bool  — True si sos mano de la ronda: jugaste
+#                                   primero en la 1ra baza y ganás empates de envido
 #   gs["es_mi_turno"]       bool  — True si te toca jugar ahora
 #   gs["nivel_truco"]       int   — 0=sin cantar, 1=truco, 2=retruco, 3=vale4
 #   gs["envido_disponible"] bool  — True si todavía se puede cantar envido
