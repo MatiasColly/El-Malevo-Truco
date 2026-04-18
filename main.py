@@ -133,7 +133,8 @@ def _manejar_envido(engine: TrucoEngine, cantor: str, tipo_envido: str) -> None:
 
     ui.mostrar_truco_canto(cantor, tipo_envido.replace("_", " "))
 
-    secuencia = [tipo_envido]
+    engine.envido_secuencia = [tipo_envido]
+    secuencia = engine.envido_secuencia
     oponente_nombre = engine._oponente_nombre(cantor)
     oponente = engine._get_jugador(oponente_nombre)
 

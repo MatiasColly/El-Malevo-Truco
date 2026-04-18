@@ -57,6 +57,13 @@ from .ai_interface import AIInterface
 #   gs["es_mi_turno"]       bool  — True si te toca jugar ahora
 #   gs["nivel_truco"]       int   — 0=sin cantar, 1=truco, 2=retruco, 3=vale4
 #   gs["envido_disponible"] bool  — True si todavía se puede cantar envido
+#   gs["envido_secuencia"]  list[str] — cantos de envido ya realizados esta ronda
+#       []                         → no se cantó nada aún
+#       ["envido"]                 → se cantó envido, pendiente respuesta
+#       ["envido", "real_envido"]  → escalada en curso
+#       ["envido", "falta_envido"] → etc. (ver ENVIDO_TABLA en truco_engine.py)
+#   gs["envido_en_juego"]   int | None — puntos que gana quien dice quiero
+#       None si no hay envido cantado aún en esta ronda
 #   gs["puede_cantar_truco"] bool — True si podés subir el truco ahora
 #
 # ACCIONES DISPONIBLES en este turno:
@@ -85,9 +92,9 @@ class BarrioAI(AIInterface):
         soy_mano = game_state.get("es_mano", False)
         bazas = game_state.get("bazas", [])
 
-        print("Mano", mano)
-        print("Soy Mano", soy_mano)
-        print("Cartas oponente", cartas_jugadas_oponente)
+        print("Mano: ", mano)
+        print("Soy Mano: ", soy_mano)
+        print("Cartas oponente: ", cartas_jugadas_oponente)
 
         # ------------- Baza 1: ------------- #
 
@@ -176,17 +183,138 @@ class BarrioAI(AIInterface):
 
     # ----------------- Sección lógica del envido -------------------------- #
 
+    """
+    Lógica: Ufff, parece un spaghetti code, pero es simple:
+    - En base a en que momento estamos del envido, asigno una probabilidad de querer o no querer en funcion de los 
+    puntos que tengo. Lo numero los saque completamente a ojimetro, tratando de representar como jugaria yo.
+    - En los casos que se puede cantar mas, primero me fijo si me gustan, y despues evaluo de nuevo si cantaria mas.
+    - Si estamos en falta envido, seguimos una logica extra para estos casos
+    - No canto nunca falta envido, re cagón. Hay que complejizar mas la logica para que valga la pena cantarlo, queda
+    para otro dia (posiblemente nunca lo haga jaja..)
+    """
     def responder_envido(self, game_state: dict) -> dict:
-        # 60% quiero, 20% no quiero, 20% subir
-        r = random.random()
-        if r < 0.6:
-            return {"tipo": "quiero"}
-        elif r < 0.8:
-            return {"tipo": "no_quiero"}
+
+        envido_propio = game_state.get("envido_propio", 0)
+        envido_secuencia = game_state.get("envido_secuencia", 0)
+        envido_en_juego = game_state.get("envido_en_juego", 0)
+
+        print("Envido propio:", envido_propio)
+        print("Envido secuencia:", envido_secuencia)
+
+        if "falta_envido" in envido_secuencia:
+            if envido_en_juego == 1:
+                return {"tipo": "quiero"}
+            # Hacemos estos truquitos para que no responda otra cosa, que no sea quiero/no quiero. Y evaluamos normal
+            elif envido_en_juego <= 3:
+                envido_en_juego = 3
+                pass
+            elif envido_en_juego <= 5:
+                envido_en_juego = 5
+                pass
+            else:
+                probabilidad_de_querer = self.interpolate(envido_propio, 31, 33, 0.3, 1.0)
+                if self._probabilidad_a_decision(probabilidad_de_querer):
+                    return {"tipo": "quiero"}
+                else:
+                    return {"tipo": "no_quiero"}
+
+        # Envido
+        if envido_en_juego == 2:
+
+            if envido_propio <= 20:
+                probabilidad_de_querer = 0
+            elif envido_propio <= 25:
+                probabilidad_de_querer = 0.05
+            elif envido_propio <= 26:
+                probabilidad_de_querer = 0.15
+            else:
+                probabilidad_de_querer = self.interpolate(envido_propio, 27, 33, 0.30, 1.0)
+
+            if self._probabilidad_a_decision(probabilidad_de_querer):
+                if envido_propio <= 27:
+                    probabilidad_de_subir = 0.07
+                else:
+                    probabilidad_de_subir = self.interpolate(envido_propio, 28, 33, 0.07, 1.0)
+
+                # La mitad de las veces elegimos uno u otro
+                if self._probabilidad_a_decision(probabilidad_de_subir):
+                    if self._probabilidad_a_decision(0.5):
+                        return {"tipo": "real_envido"}
+                    else:
+                        return {"tipo": "envido"}
+                else:
+                    return {"tipo": "quiero"}
+            else:
+                return {"tipo": "no_quiero"}
+
+        # Real Envido
+        elif envido_en_juego == 3:
+
+            if envido_propio <= 20:
+                probabilidad_de_querer = 0
+            elif envido_propio <= 26:
+                probabilidad_de_querer = 0.1
+            else:
+                probabilidad_de_querer = self.interpolate(envido_propio, 27, 33, 0.25, 1.0)
+
+            if self._probabilidad_a_decision(probabilidad_de_querer):
+                return {"tipo": "quiero"}
+            else:
+                return {"tipo": "no_quiero"}
+
+        # Envido, Envido
+        elif envido_en_juego == 4:
+
+            if envido_propio <= 20:
+                probabilidad_de_querer = 0.0
+            elif envido_propio <= 27:
+                probabilidad_de_querer = 0.05
+            else:
+                probabilidad_de_querer = self.interpolate(envido_propio, 28, 33, 0.20, 1.0)
+
+            if self._probabilidad_a_decision(probabilidad_de_querer):
+                if envido_propio <= 30:
+                    probabilidad_de_subir = 0
+                else:
+                    probabilidad_de_subir = self.interpolate(envido_propio, 31, 33, 0.30, 1.0)
+
+                if self._probabilidad_a_decision(probabilidad_de_subir):
+                    return {"tipo": "real_envido"}
+                else:
+                    return {"tipo": "quiero"}
+            else:
+                return {"tipo": "no_quiero"}
+
+        # Envido, Real Envido
+        elif envido_en_juego == 5:
+
+            if envido_propio <= 27:
+                probabilidad_de_querer = 0.0
+            else:
+                probabilidad_de_querer = self.interpolate(envido_propio, 28, 33, 0.10, 1.0)
+
+            if self._probabilidad_a_decision(probabilidad_de_querer):
+                return {"tipo": "quiero"}
+            else:
+                return {"tipo": "no_quiero"}
+
+        # Envido, Envido, Real Envido
+        elif envido_en_juego == 7:
+            
+            if envido_propio <= 30:
+                probabilidad_de_querer = 0.0
+            else:
+                probabilidad_de_querer = self.interpolate(envido_propio, 31, 33, 0.30, 1.0)
+
+            if self._probabilidad_a_decision(probabilidad_de_querer):
+                return {"tipo": "quiero"}
+            else:
+                return {"tipo": "no_quiero"}
+
+        # No debería caer aca
         else:
-            if game_state.get("envido_disponible", False):
-                return {"tipo": random.choice(["real_envido", "falta_envido"])}
-            return {"tipo": "quiero"}
+            print("Cayo! Que paso??")
+            return {"tipo": "no_quiero"}
 
     """ Lógica: 
             - Siendo mano: 7% es la probabilidad de que mienta si no tiene nada. Escalamos linealmente para que mientras 
@@ -262,7 +390,8 @@ class BarrioAI(AIInterface):
                 return [True, carta]
         return [False, mano_ordenada[0]]
 
-    def _carta_a_indice (self, mano, carta) -> int:
+    @staticmethod
+    def _carta_a_indice (mano, carta) -> int:
         for i, c in enumerate(mano):
             if c == carta:
                 return i

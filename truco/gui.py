@@ -450,7 +450,8 @@ class TrucoGUI:
             return
 
         self._set_mensaje(f"¡{cantor} canta {tipo.replace('_', ' ').upper()}!")
-        self.envido_secuencia = [tipo]
+        self.engine.envido_secuencia = [tipo]
+        self.envido_secuencia = self.engine.envido_secuencia
         self.envido_cantor = cantor
         oponente_nombre = self.engine._oponente_nombre(cantor)
         oponente = self.engine._get_jugador(oponente_nombre)

@@ -61,6 +61,7 @@ class TrucoEngine:
         self.envido_puntos: int = 0  # puntos acumulados de envido
         self.envido_terminado: bool = False
         self.envido_cantado: bool = False
+        self.envido_secuencia: list[str] = []
         self.primera_baza: bool = True  # envido solo en primera baza
 
     @property
@@ -97,6 +98,7 @@ class TrucoEngine:
         self.envido_puntos = 0
         self.envido_terminado = False
         self.envido_cantado = False
+        self.envido_secuencia: list[str] = []
         self.primera_baza = True
 
         self.ronda = Ronda(self.jugador1, self.jugador2, self.mano_nombre)
@@ -317,6 +319,8 @@ class TrucoEngine:
             "envido_propio": jugador.calcular_envido(),
             "nivel_truco": self.nivel_truco,
             "envido_disponible": self.puede_cantar_envido(),
+            "envido_secuencia": list(self.envido_secuencia),
+            "envido_en_juego": self.calcular_puntos_envido_secuencia(self.envido_secuencia)[0] if self.envido_secuencia else None,
             "puede_cantar_truco": self.puede_cantar_truco(perspectiva),
             "es_mano": es_mano_baza,
             "es_mano_ronda": perspectiva == self.mano_nombre,
