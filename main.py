@@ -174,13 +174,13 @@ def _manejar_envido(engine: TrucoEngine, cantor: str, tipo_envido: str) -> None:
 
 
 def _manejar_mazo(engine: TrucoEngine, ronda, jugador_nombre: str) -> None:
-    """Irse al mazo: si es en primera sin envido cantado, el oponente gana 2 pts."""
+    """Irse al mazo: si es en primera sin envido cantado, el oponente gana 1 pt de envido."""
     ui.mostrar_mensaje(f"{jugador_nombre} se va al mazo.")
     if engine.primera_baza and not engine.envido_terminado:
         oponente_nombre = engine._oponente_nombre(jugador_nombre)
-        engine.sumar_puntos(oponente_nombre, 2)
+        engine.sumar_puntos(oponente_nombre, 1)
         engine.envido_terminado = True
-        ui.mostrar_mensaje(f"Envido no cantado: {oponente_nombre} gana 2 pts.")
+        ui.mostrar_mensaje(f"Envido no cantado: {oponente_nombre} gana 1 pt.")
         ui.mostrar_puntuacion(engine.jugador1, engine.jugador2)
     ronda.ir_al_mazo(jugador_nombre)
 
@@ -219,7 +219,7 @@ def _manejar_truco(engine: TrucoEngine, ronda, cantor: str, nivel: str) -> None:
         cantor, oponente_nombre = oponente_nombre, cantor
         oponente = engine._get_jugador(oponente_nombre)
         nivel = respuesta
-        puede_subir = engine.nivel_truco < 3
+        puede_subir = engine.nivel_truco + 1 < 3
 
         if isinstance(oponente, JugadorHumano):
             respuesta = ui.pedir_respuesta_truco(oponente, nivel, puede_subir)

@@ -665,7 +665,7 @@ class TrucoGUI:
 
             self.truco_cantor = respondedor
             self.truco_nivel = respuesta
-            self.truco_puede_subir = self.engine.nivel_truco < 3
+            self.truco_puede_subir = self.engine.nivel_truco + 1 < 3
 
             oponente_nombre = self.engine._oponente_nombre(respondedor)
             oponente = self.engine._get_jugador(oponente_nombre)
@@ -706,9 +706,9 @@ class TrucoGUI:
 
         if self.engine.primera_baza and not self.engine.envido_terminado:
             oponente = self.engine._oponente_nombre(nombre)
-            self.engine.sumar_puntos(oponente, 2)
+            self.engine.sumar_puntos(oponente, 1)
             self.engine.envido_terminado = True
-            self._set_mensaje(f"{nombre} se va al mazo. {oponente} gana 2 pts de envido.", 3.0)
+            self._set_mensaje(f"{nombre} se va al mazo. {oponente} gana 1 pt de envido.", 3.0)
 
         self.ronda.ir_al_mazo(nombre)
         self.estado = Estado.SHOWING_MAZO

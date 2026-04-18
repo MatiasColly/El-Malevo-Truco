@@ -129,14 +129,13 @@ class TrucoEngine:
     def _calcular_falta_envido(self) -> int:
         """
         Puntos del falta envido:
-        - Ambos en las malas (< 15): puntos para completar las malas (15 - lider)
-        - Al menos uno en las buenas (>= 15): puntos para ganar el partido (30 - lider)
+        - Ambos en las malas (< 15): es el partido → lo que falta al líder
+          para llegar a 30.
+        - Al menos uno en las buenas (>= 15): los puntos que le faltan al que
+          va venciendo para ganar (30 - líder). Gana el partido si venció
+          quien va arriba en el marcador.
         """
-        p1 = self.jugador1.puntos
-        p2 = self.jugador2.puntos
-        lider = max(p1, p2)
-        if p1 < 15 and p2 < 15:
-            return 15 - lider
+        lider = max(self.jugador1.puntos, self.jugador2.puntos)
         return PUNTOS_OBJETIVO - lider
 
     def cantos_validos_respuesta_envido(self, secuencia: list[str]) -> list[str]:
