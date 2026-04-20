@@ -151,7 +151,7 @@ class BarrioAI(AIInterface):
                     return {"tipo": "mazo"}
 
             # Si fué pardas: si soy mano, juego la mas alta. Si soy pie, mato o me voy al mazo
-            elif bazas[0] == "pardas":
+            elif bazas[0] == "parda":
                 if soy_mano:
                     mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
                     return {"tipo": "jugar_carta", "indice": self._carta_a_indice(mano, mano_ordenada[-1])}
