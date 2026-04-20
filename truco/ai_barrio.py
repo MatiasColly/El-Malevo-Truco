@@ -357,11 +357,14 @@ class BarrioAI(AIInterface):
         soy_mano = game_state.get("es_mano", False)
         mano = game_state.get("mano", [])
         cartas_jugadas_oponente = game_state.get("cartas_jugadas_oponente", [])
+        cartas_jugadas_propias = game_state.get("cartas_jugadas_propias", [])
+        ultima_carta_propia = cartas_jugadas_propias[-1:]
         ultima_carta_oponente = cartas_jugadas_oponente[-1:]
         manos_baza = game_state.get("manos_baza", [])
         es_mi_turno = game_state.get("es_mi_turno", False)
 
-        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente, es_mi_turno)
+        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente,
+                                                        cartas_jugadas_propias, es_mi_turno)
 
         print("Mano:", mano)
         print("Truco del humano. Chance de ganar la ronda:", chance_de_ganar)
@@ -382,10 +385,14 @@ class BarrioAI(AIInterface):
                         return {"tipo": "envido"}
 
         if chance_de_ganar >= 0.75:
-            if [a for a in acciones if a == "retruco"]:
-                return {"tipo": "retruco"}
-            elif [a for a in acciones if a == "vale cuatro"]:
-                return {"tipo": "vale cuatro"}
+            if len(mano) != 0:
+                if [a for a in acciones if a == "retruco"]:
+                    return {"tipo": "retruco"}
+                elif [a for a in acciones if a == "vale cuatro"]:
+                    return {"tipo": "vale cuatro"}
+                else:
+                    return {"tipo": "quiero"}
+            # Si ya jugue todas no quiero subir, no tiene sentido
             else:
                 return {"tipo": "quiero"}
 
@@ -453,13 +460,16 @@ class BarrioAI(AIInterface):
     def canto_truco(self, game_state: dict) -> bool:
         mano = game_state.get("mano", [])
         cartas_jugadas_oponente = game_state.get("cartas_jugadas_oponente", [])
+        cartas_jugadas_propias = game_state.get("cartas_jugadas_propias", [])
+        ultima_carta_propia = cartas_jugadas_propias[-1:]
         ultima_carta_oponente = cartas_jugadas_oponente[-1:]
         soy_mano = game_state.get("es_mano", False)
         bazas = game_state.get("bazas", [])
         manos_baza = game_state.get("manos_baza", [])
         es_mi_turno = game_state.get("es_mi_turno", False)
 
-        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente, es_mi_turno)
+        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente,
+                                                        ultima_carta_propia, es_mi_turno)
         print("Chance de ganar la ronda:", chance_de_ganar)
 
         if len(bazas) == 0:
@@ -514,7 +524,8 @@ class BarrioAI(AIInterface):
 
         return False
 
-    def _estimar_chance_de_ganar(self, mano, bazas, soy_mano, ultima_carta_oponente, es_mi_turno) -> float:
+    def _estimar_chance_de_ganar(self, mano, bazas, soy_mano, ultima_carta_oponente,
+                                 ultima_carta_propia, es_mi_turno) -> float:
 
         ya_ganadas = sum(elemento == "yo" for elemento in bazas)
         ya_perdidas = sum(elemento == "oponente" for elemento in bazas)
@@ -552,11 +563,19 @@ class BarrioAI(AIInterface):
         if ya_ganadas == 1 and any(carta["poder"] >= 9 for carta in mano_sorted):  # 9 = cualquier 2
             return 0.8
 
+        # Necesito dos decentes para ganar las rondas que quedan
+        if ya_perdidas == 1 and any(carta["poder"] <= 4 for carta in mano_sorted):  # 4 = 7 de basto / 7 de copa
+            return 0.1
+
         # Baza 1, 2 o 3, tengo 2 buenas cartas
         if sum(carta["poder"] >= 11 for carta in mano_sorted) >= 2:
             return 0.9
         if sum(carta["poder"] >= 9 for carta in mano_sorted) >= 2:
             return 0.8
+
+        # Caso de que ya jugué todas y me tiran truco
+        if len(mano_sorted) == 0:
+            return self.interpolate(ultima_carta_propia[0]['poder'], 1, 14, 0.0, 1.0)
 
         # Baza 1, 2 o 3, estimo aproximadamente el poder de mi mano restante por promedio
         suma_de_poder = 0

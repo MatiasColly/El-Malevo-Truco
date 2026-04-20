@@ -16,10 +16,12 @@ class Jugador:
     def __init__(self, nombre: str) -> None:
         self.nombre = nombre
         self.mano: list[Carta] = []
+        self.cartas_ronda: list[Carta] = []  # las 3 cartas originales de la ronda
         self.puntos: int = 0
 
     def recibir_cartas(self, cartas: list[Carta]) -> None:
         self.mano = list(cartas)
+        self.cartas_ronda = list(cartas)
 
     def tiene_cartas(self) -> bool:
         return len(self.mano) > 0
@@ -29,12 +31,16 @@ class Jugador:
         return self.mano.pop(indice)
 
     def calcular_envido(self) -> int:
-        """Calcula el mejor envido de la mano (máximo entre pares del mismo palo)."""
+        """Calcula el mejor envido usando las 3 cartas originales de la ronda."""
         from itertools import combinations
 
-        mejor = max(c.valor_envido for c in self.mano)
+        cartas = self.cartas_ronda
+        if not cartas:
+            return 0
 
-        for c1, c2 in combinations(self.mano, 2):
+        mejor = max(c.valor_envido for c in cartas)
+
+        for c1, c2 in combinations(cartas, 2):
             if c1.palo == c2.palo:
                 valor = 20 + c1.valor_envido + c2.valor_envido
                 mejor = max(mejor, valor)
