@@ -288,6 +288,7 @@ class TrucoEngine:
         acciones = self._acciones_disponibles(perspectiva)
 
         bazas = []
+        manos_baza = []
         if self.ronda:
             for baza in self.ronda.bazas:
                 if baza.parda:
@@ -296,6 +297,8 @@ class TrucoEngine:
                     bazas.append("yo")
                 else:
                     bazas.append("oponente")
+                primero = next(iter(baza.cartas)) if baza.cartas else None
+                manos_baza.append("yo" if primero == perspectiva else "oponente")
 
         # Quién juega primero en la baza actual
         if self.ronda:
@@ -314,6 +317,7 @@ class TrucoEngine:
             "cartas_jugadas_oponente": cartas_jugadas_oponente,
             "carta_oponente_mesa": carta_oponente_mesa,
             "bazas": bazas,
+            "manos_baza": manos_baza,
             "puntos_propios": jugador.puntos,
             "puntos_oponente": oponente.puntos,
             "envido_propio": jugador.calcular_envido(),

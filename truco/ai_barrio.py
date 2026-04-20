@@ -42,6 +42,12 @@ from .ai_interface import AIInterface
 #       gs["bazas"] == ["oponente"]                  → oponente ganó la 1ra
 #       gs["bazas"] == ["parda", "yo"]               → 1ra parda, 2da para vos
 #       gs["bazas"] == ["oponente", "parda", "yo"]   → 1ra oponente, 2da parda, 3ra vos
+#   gs["manos_baza"]  list[str]  — quién fue mano (jugó primero) en cada baza
+#       completada, desde tu perspectiva: "yo" u "oponente".
+#       Mismo largo que gs["bazas"]. Lista vacía antes de terminar la 1ra baza.
+#   Ejemplo:
+#       gs["manos_baza"] == ["yo", "oponente"]       → vos arrancaste la 1ra,
+#                                                       el oponente arrancó la 2da
 #
 # PUNTAJES:
 #   gs["puntos_propios"]   int  — tus puntos actuales
@@ -80,7 +86,6 @@ from .ai_interface import AIInterface
 #                      | {"tipo": "retruco"} | {"tipo": "vale cuatro"}
 # ─────────────────────────────────────────────────────────────────────────────
 
-# TODO Agregar el evaluate truco, no olvidar
 class BarrioAI(AIInterface):
     """IA de barrio, hecha a mano, a la vieja escuela."""
 
@@ -96,11 +101,10 @@ class BarrioAI(AIInterface):
         print("Soy Mano: ", soy_mano)
         print("Cartas oponente: ", cartas_jugadas_oponente)
 
-        # ------------- Baza 1: ------------- #
+        # ------------- Evalúo Envido ------------- #
 
         if len(bazas) == 0:
 
-            # ---- Evalúo envido ---- #
             if [a for a in acciones if a == "envido" or a == "real_envido" or a == "falta_envido"]:
 
                 envido_propio = game_state.get("envido_propio", 0)
@@ -112,6 +116,20 @@ class BarrioAI(AIInterface):
                         return {"tipo": "real_envido"}
                     else:
                         return {"tipo": "envido"}
+
+        # ------------- Evalúo Truco ------------- #
+
+        if self.canto_truco(game_state):
+            if [a for a in acciones if a == "truco"]:
+                return {"tipo": "truco"}
+            elif [a for a in acciones if a == "retruco"]:
+                return {"tipo": "retruco"}
+            elif [a for a in acciones if a == "vale cuatro"]:
+                return {"tipo": "vale cuatro"}
+
+        # ------------- Baza 1: ------------- #
+
+        if len(bazas) == 0:
 
             if soy_mano:
                 carta = self._elegir_primera_carta(mano)
@@ -416,4 +434,114 @@ class BarrioAI(AIInterface):
         else:
             print("Elijo la carta mas baja")
             return mano_ordenada[0]
+
+    def canto_truco(self, game_state: dict) -> bool:
+        mano = game_state.get("mano", [])
+        cartas_jugadas_oponente = game_state.get("cartas_jugadas_oponente", [])
+        ultima_carta_oponente = cartas_jugadas_oponente[-1:]
+        soy_mano = game_state.get("es_mano", False)
+        bazas = game_state.get("bazas", [])
+        manos_baza = game_state.get("manos_baza", [])
+
+        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente)
+        print("Chance de ganar la ronda:", chance_de_ganar)
+
+        if len(bazas) == 0:
+            # Si tenemos cartas muy feas, podemos mentir para correrlo. Si tenemos muy buenas, podemos cantarle rapido
+            # para hacerlo entrar desde el principio
+            if chance_de_ganar <= 0.15 or chance_de_ganar >= 0.9:
+                return self._probabilidad_a_decision(0.15)
+
+        elif len(bazas) == 1:
+            # No voy a cantar aca, si pude cantar en primera sin revelar más info
+            if bazas[0] == "yo" and manos_baza[0] == "oponente":
+                return False
+
+            # Perdí primera, pero voy a ganar las próximas dos
+            if bazas[0] == "oponente" and chance_de_ganar >= 0.85:
+                return True
+
+            # La mejor situación para correrlo si no me queda nada
+            if bazas[0] == "yo" and chance_de_ganar <= 0.25:
+                return True
+
+            # Canto porque me quedaron 2 cartas muy altas
+            if bazas[0] == "yo" and sum(carta["poder"] >= 9 for carta in mano) == 2:
+                return True
+
+            # Pongo alguna chance de cantar proporcional a mi mano
+            return self._probabilidad_a_decision(chance_de_ganar - 0.3)
+
+        else:
+            # No voy a cantar aca, si pude cantar en segunda sin revelar más info
+            if soy_mano:
+                return False
+
+            else:
+                # Si sé que gano, canto siempre
+                if chance_de_ganar >= 0.5:  # Si está bien la logica aca la chance es 0.0 o 1.0
+                    return True
+
+                else:
+                    # No le miento por que me va a querer
+                    if ultima_carta_oponente[0]['poder'] >= 9:  # 10 = cualquier 2
+                        return False
+
+                    # Carta fea, le cantamos si o si
+                    if ultima_carta_oponente[0]['poder'] <= 4:  # 4 = 7 basto / 7 copa
+                        return True
+
+                    return self._probabilidad_a_decision(0.5)
+
+                # Como dato de color: Pensando en toda esta logica me di cuenta de que si ganas primera, siempre jugás
+                # la última carta de la partida. Clave ganar primera che!
+
+        return False
+
+    def _estimar_chance_de_ganar(self, mano, bazas, soy_mano, ultima_carta_oponente) -> float:
+
+        ya_ganadas = sum(elemento == "yo" for elemento in bazas)
+        ya_perdidas = sum(elemento == "oponente" for elemento in bazas)
+
+        mano_sorted = sorted(mano, key=lambda c: c.get("poder", 0))
+
+        # Primero simulo matar la carta de él, posteriormente estimo el poder restante
+        if not soy_mano:
+            la_mato, carta = self._matar_con_lo_justo(mano, ultima_carta_oponente)
+            if la_mato:
+                ya_ganadas = ya_ganadas + 1
+                mano_sorted.remove(carta)
+            else:
+                ya_perdidas = ya_perdidas + 1
+                mano_sorted.remove(carta)
+
+            # Resultados certeros por la estimación de jugar ahora
+            if ya_ganadas == 2:
+                return 1.0
+
+            if ya_perdidas == 2:
+                return 0.0
+
+        # Baza 1, 2 o 3, ya gané la primera baza, y tengo otra buena
+        if ya_ganadas == 1 and any(carta["poder"] >= 11 for carta in mano_sorted):  # 11 = 7 de oro
+            return 0.9
+        if ya_ganadas == 1 and any(carta["poder"] >= 10 for carta in mano_sorted):  # 10 = cualquier 3
+            return 0.85
+        if ya_ganadas == 1 and any(carta["poder"] >= 9 for carta in mano_sorted):  # 9 = cualquier 2
+            return 0.8
+
+        # Baza 1, 2 o 3, tengo 2 buenas cartas
+        if sum(carta["poder"] >= 11 for carta in mano_sorted) >= 2:
+            return 0.9
+        if sum(carta["poder"] >= 9 for carta in mano_sorted) >= 2:
+            return 0.8
+
+        # Baza 1, 2 o 3, estimo aproximadamente el poder de mi mano restante por promedio
+        suma_de_poder = 0
+        for carta in mano_sorted:
+            suma_de_poder = suma_de_poder + carta['poder']
+
+        suma_de_poder = suma_de_poder / len(mano_sorted) / 14 # 14 = Poder Máximo
+
+        return suma_de_poder
 
