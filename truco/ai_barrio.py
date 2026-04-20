@@ -180,27 +180,7 @@ class BarrioAI(AIInterface):
                 else:
                     return {"tipo": "mazo"}
 
-
-        # 80% de las veces juega carta, 20% intenta cantar algo
-        if mano and random.random() < 0.8:
-            indice = random.randint(0, len(mano) - 1)
-            return {"tipo": "jugar_carta", "indice": indice}
-
-        # Intentar cantar algo
-        cantos = [a for a in acciones if a != "jugar_carta" and a != "mazo"]
-        if cantos:
-            canto = random.choice(cantos)
-            return {"tipo": canto}
-
-        # Fallback: jugar carta
-        if mano:
-            indice = random.randint(0, len(mano) - 1)
-            return {"tipo": "jugar_carta", "indice": indice}
-
-        return {"tipo": "mazo"}
-
     # ----------------- Sección lógica del envido -------------------------- #
-
     """
     Lógica: Ufff, parece un spaghetti code, pero es simple:
     - En base a en que momento estamos del envido, asigno una probabilidad de querer o no querer en funcion de los 
@@ -366,21 +346,56 @@ class BarrioAI(AIInterface):
 
     # ----------------- Seccion logica de mano/truco -------------------------- #
 
+    """
+    Lógica: Muy simple si me cantan en primera, evalúo cantarle envido; si la veo muy bien le subo y si no 
+    evalúo proporcional a la mano
+    """
     def responder_truco(self, game_state: dict) -> dict:
-        # 60% quiero, 25% no quiero, 15% subir
-        r = random.random()
-        if r < 0.6:
-            return {"tipo": "quiero"}
-        elif r < 0.85:
+
+        bazas = game_state.get("bazas", [])
+        acciones = game_state.get("acciones", [])
+        soy_mano = game_state.get("es_mano", False)
+        mano = game_state.get("mano", [])
+        cartas_jugadas_oponente = game_state.get("cartas_jugadas_oponente", [])
+        ultima_carta_oponente = cartas_jugadas_oponente[-1:]
+        manos_baza = game_state.get("manos_baza", [])
+        es_mi_turno = game_state.get("es_mi_turno", False)
+
+        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente, es_mi_turno)
+
+        print("Mano:", mano)
+        print("Truco del humano. Chance de ganar la ronda:", chance_de_ganar)
+
+        # Código duplicado! Si me quieren meter truco en primera me fijo si le puedo meter envido
+        if len(bazas) == 0:
+
+            if [a for a in acciones if a == "envido" or a == "real_envido" or a == "falta_envido"]:
+
+                envido_propio = game_state.get("envido_propio", 0)
+                prob_cantar_envido = self._envido_propio_a_probabilidades(envido_propio, soy_mano)
+                print("Probabilidad de cantar envido:", prob_cantar_envido, ", puntos envido:", envido_propio)
+
+                if self._probabilidad_a_decision(prob_cantar_envido):
+                    if self._probabilidad_a_decision(0.25):
+                        return {"tipo": "real_envido"}
+                    else:
+                        return {"tipo": "envido"}
+
+        if chance_de_ganar >= 0.75:
+            if [a for a in acciones if a == "retruco"]:
+                return {"tipo": "retruco"}
+            elif [a for a in acciones if a == "vale cuatro"]:
+                return {"tipo": "vale cuatro"}
+            else:
+                return {"tipo": "quiero"}
+
+        if chance_de_ganar <= 0.3:
             return {"tipo": "no_quiero"}
-        else:
-            if game_state.get("puede_cantar_truco", False):
-                nivel = game_state.get("nivel_truco", 0)
-                if nivel == 0:
-                    return {"tipo": "retruco"}
-                elif nivel == 1:
-                    return {"tipo": "vale cuatro"}
+
+        if self._probabilidad_a_decision(chance_de_ganar):
             return {"tipo": "quiero"}
+
+        return {"tipo": "no_quiero"}
 
     """ Lógica: 
     - Jugamos 40% de la veces la carta mas alta (opción que mas gana pero después no se puede mentir mucho). 
@@ -442,8 +457,9 @@ class BarrioAI(AIInterface):
         soy_mano = game_state.get("es_mano", False)
         bazas = game_state.get("bazas", [])
         manos_baza = game_state.get("manos_baza", [])
+        es_mi_turno = game_state.get("es_mi_turno", False)
 
-        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente)
+        chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente, es_mi_turno)
         print("Chance de ganar la ronda:", chance_de_ganar)
 
         if len(bazas) == 0:
@@ -498,7 +514,7 @@ class BarrioAI(AIInterface):
 
         return False
 
-    def _estimar_chance_de_ganar(self, mano, bazas, soy_mano, ultima_carta_oponente) -> float:
+    def _estimar_chance_de_ganar(self, mano, bazas, soy_mano, ultima_carta_oponente, es_mi_turno) -> float:
 
         ya_ganadas = sum(elemento == "yo" for elemento in bazas)
         ya_perdidas = sum(elemento == "oponente" for elemento in bazas)
@@ -506,7 +522,7 @@ class BarrioAI(AIInterface):
         mano_sorted = sorted(mano, key=lambda c: c.get("poder", 0))
 
         # Primero simulo matar la carta de él, posteriormente estimo el poder restante
-        if not soy_mano:
+        if not soy_mano and es_mi_turno:
             la_mato, carta = self._matar_con_lo_justo(mano, ultima_carta_oponente)
             if la_mato:
                 ya_ganadas = ya_ganadas + 1
@@ -517,12 +533,18 @@ class BarrioAI(AIInterface):
 
             # Resultados certeros por la estimación de jugar ahora
             if ya_ganadas == 2:
+                print("Ganada certera")
                 return 1.0
 
             if ya_perdidas == 2:
+                print("Perdida certera")
                 return 0.0
 
         # Baza 1, 2 o 3, ya gané la primera baza, y tengo otra buena
+        if ya_ganadas == 1 and any(carta["poder"] == 14 for carta in mano_sorted):  # 14 = 1 de espada
+            return 1.0
+        if ya_ganadas == 1 and any(carta["poder"] >= 13 for carta in mano_sorted):  # 13 = 1 de basto
+            return 0.95
         if ya_ganadas == 1 and any(carta["poder"] >= 11 for carta in mano_sorted):  # 11 = 7 de oro
             return 0.9
         if ya_ganadas == 1 and any(carta["poder"] >= 10 for carta in mano_sorted):  # 10 = cualquier 3
