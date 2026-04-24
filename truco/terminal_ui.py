@@ -168,26 +168,32 @@ def pedir_respuesta_envido(jugador: Jugador, canto: str,
 
 
 def pedir_respuesta_truco(jugador: Jugador, nivel: str,
-                          puede_subir: bool) -> str:
+                          puede_subir: bool, puede_envido: bool = False) -> str:
     """Pide respuesta a un canto de truco."""
     print(f"\n  Te cantaron {nivel.upper()}. ¿Qué hacés, {jugador.nombre}?")
-    print("  [1] Quiero")
-    print("  [2] No quiero")
+    opciones: dict[str, str] = {}
+    idx = 1
+    for clave, etiqueta in [("quiero", "Quiero"), ("no_quiero", "No quiero")]:
+        print(f"  [{idx}] {etiqueta}")
+        opciones[str(idx)] = clave
+        idx += 1
     if puede_subir:
         siguiente = _nombre_siguiente_truco(nivel)
-        print(f"  [3] {siguiente}")
+        print(f"  [{idx}] {siguiente.title()}")
+        opciones[str(idx)] = siguiente
+        idx += 1
+    if puede_envido:
+        for clave, etiqueta in [("envido", "Envido"), ("real_envido", "Real Envido"), ("falta_envido", "Falta Envido")]:
+            print(f"  [{idx}] {etiqueta}")
+            opciones[str(idx)] = clave
+            idx += 1
 
     while True:
         try:
             entrada = input("\n> ").strip()
-            if entrada == "1":
-                return "quiero"
-            elif entrada == "2":
-                return "no_quiero"
-            elif entrada == "3" and puede_subir:
-                return _nombre_siguiente_truco(nivel)
-            else:
-                print("  Opción inválida.")
+            if entrada in opciones:
+                return opciones[entrada]
+            print("  Opción inválida.")
         except (EOFError, KeyboardInterrupt):
             raise SystemExit(0)
 

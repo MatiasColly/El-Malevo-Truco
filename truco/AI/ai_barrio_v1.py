@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 
-from .ai_interface import AIInterface
+from ..ai_interface import AIInterface
 
 
 
@@ -86,7 +86,7 @@ from .ai_interface import AIInterface
 #                      | {"tipo": "retruco"} | {"tipo": "vale cuatro"}
 # ─────────────────────────────────────────────────────────────────────────────
 
-class BarrioAI(AIInterface):
+class BarrioAI_V1(AIInterface):
     """IA de barrio, hecha a mano, a la vieja escuela."""
 
     def elegir_accion(self, game_state: dict) -> dict:
@@ -225,8 +225,10 @@ class BarrioAI(AIInterface):
                 probabilidad_de_querer = 0.05
             elif envido_propio <= 26:
                 probabilidad_de_querer = 0.15
+            elif envido_propio >= 30:
+                probabilidad_de_querer = 1.0
             else:
-                probabilidad_de_querer = self.interpolate(envido_propio, 27, 33, 0.30, 1.0)
+                probabilidad_de_querer = self.interpolate(envido_propio, 27, 30, 0.50, 1.0)
 
             if self._probabilidad_a_decision(probabilidad_de_querer):
                 if envido_propio <= 27:
@@ -252,8 +254,10 @@ class BarrioAI(AIInterface):
                 probabilidad_de_querer = 0
             elif envido_propio <= 26:
                 probabilidad_de_querer = 0.1
+            elif envido_propio >= 30:
+                probabilidad_de_querer = 1.0
             else:
-                probabilidad_de_querer = self.interpolate(envido_propio, 27, 33, 0.25, 1.0)
+                probabilidad_de_querer = self.interpolate(envido_propio, 27, 30, 0.3, 1.0)
 
             if self._probabilidad_a_decision(probabilidad_de_querer):
                 return {"tipo": "quiero"}
@@ -585,4 +589,5 @@ class BarrioAI(AIInterface):
         suma_de_poder = suma_de_poder / len(mano_sorted) / 14 # 14 = Poder Máximo
 
         return suma_de_poder
+
 

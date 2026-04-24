@@ -202,6 +202,7 @@ class TrucoGUI:
         self.truco_nivel: str = ""
         self.truco_puede_subir: bool = False
         self.truco_botones: list[Boton] = []
+        self.truco_pendiente: bool = False  # True cuando hay truco esperando respuesta tras envido
 
         # Mesa state
         self.carta_jugador_mesa: Carta | None = None
@@ -256,6 +257,7 @@ class TrucoGUI:
         self.carta_cpu_mesa = None
         self.resultado_envido = None
         self.envido_secuencia = []
+        self.truco_pendiente = False
         self._set_mensaje(f"Nueva ronda — Mano: {self.engine.mano_nombre}")
         self._actualizar_botones()
 
@@ -566,6 +568,17 @@ class TrucoGUI:
             self._finalizar_ronda()
             return
 
+        if self.truco_pendiente:
+            self.truco_pendiente = False
+            # El pie (oponente del cantor de truco) responde al truco
+            pie_nombre = self.engine._oponente_nombre(self.truco_cantor)
+            pie = self.engine._get_jugador(pie_nombre)
+            if isinstance(pie, JugadorHumano):
+                self._mostrar_truco_dialogo()
+            else:
+                self._responder_truco_cpu(pie_nombre)
+            return
+
         siguiente = self.ronda.turno
         if siguiente == self.engine.jugador2.nombre:
             self.estado = Estado.CPU_THINKING
@@ -604,12 +617,18 @@ class TrucoGUI:
         if self.truco_puede_subir:
             sig = self._nombre_siguiente_truco_str(self.truco_nivel)
             opciones.append(sig)
+        # En primera baza el respondedor puede contra-cantar envido antes de responder al truco
+        if self.engine.puede_cantar_envido():
+            opciones.extend(["envido", "real_envido", "falta_envido"])
 
         etiquetas = {
             "quiero": "¡Quiero!",
             "no_quiero": "No quiero",
             "retruco": "Retruco",
             "vale cuatro": "Vale Cuatro",
+            "envido": "Envido",
+            "real_envido": "Real Envido",
+            "falta_envido": "Falta Envido",
         }
 
         n = len(opciones)
@@ -619,7 +638,14 @@ class TrucoGUI:
         self.truco_botones = []
         self._truco_opciones = opciones
         for i, op in enumerate(opciones):
-            color = AZUL if op == "quiero" else ROJO if op == "no_quiero" else VERDE_OSCURO
+            if op == "quiero":
+                color = AZUL
+            elif op == "no_quiero":
+                color = ROJO
+            elif op in ("envido", "real_envido", "falta_envido"):
+                color = VERDE_OSCURO
+            else:
+                color = (120, 80, 160)
             r = pygame.Rect(cx - bw // 2, start_y + i * (bh + 8), bw, bh)
             self.truco_botones.append(Boton(r, etiquetas.get(op, op.title()), color=color))
 
@@ -659,6 +685,12 @@ class TrucoGUI:
                     self.cpu_timer = 0.8
                 else:
                     self.estado = Estado.PLAYER_TURN
+
+        elif respuesta in ("envido", "real_envido", "falta_envido"):
+            # Pie canta envido en respuesta al truco del mano: se resuelve envido primero
+            self.truco_pendiente = True
+            self._iniciar_envido(respondedor, respuesta)
+
         else:
             # Subir apuesta
             self._set_mensaje(f"¡{respondedor} canta {respuesta.upper()}!")
@@ -942,15 +974,25 @@ class TrucoGUI:
         sub = self.font_chico.render("¿Qué hacés?", True, BLANCO)
         self.screen.blit(sub, (ANCHO // 2 - sub.get_width() // 2, py + 45))
 
-        # Mostrar cartas del jugador en el diálogo
-        mano = self.engine.jugador1.mano
-        if mano:
+        # Mostrar las 3 cartas: jugadas (grisadas) + en mano (normal)
+        cartas_jugadas = (
+            self.ronda.cartas_jugadas(self.engine.jugador1.nombre) if self.ronda else []
+        )
+        cartas_en_mano = self.engine.jugador1.mano
+        todas = [(c, True) for c in cartas_jugadas] + [(c, False) for c in cartas_en_mano]
+
+        if todas:
             mini_w, mini_h = 50, 78
-            total_w = len(mano) * (mini_w + 8) - 8
+            total_w = len(todas) * (mini_w + 8) - 8
             sx = ANCHO // 2 - total_w // 2
             sy = py + 68
-            for i, c in enumerate(mano):
+            for i, (c, jugada) in enumerate(todas):
                 img = self.renderer.get(c, (mini_w, mini_h))
+                if jugada:
+                    img = img.copy()
+                    overlay = pygame.Surface((mini_w, mini_h), pygame.SRCALPHA)
+                    overlay.fill((0, 0, 0, 150))
+                    img.blit(overlay, (0, 0))
                 self.screen.blit(img, (sx + i * (mini_w + 8), sy))
 
         for btn in self.envido_botones:

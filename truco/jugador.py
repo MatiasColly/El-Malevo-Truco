@@ -70,7 +70,7 @@ class JugadorAI(Jugador):
     @property
     def ai(self) -> AIInterface:
         if self._ai is None:
-            from .ai_interface import RandomAI
+            from .AI.ai_random import RandomAI
             self._ai = RandomAI()
         return self._ai
 

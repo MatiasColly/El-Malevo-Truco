@@ -6,8 +6,9 @@ Juego por terminal: Humano vs IA (placeholder aleatorio).
 
 from truco.jugador import JugadorHumano, JugadorAI
 from truco.truco_engine import TrucoEngine, NOMBRES_TRUCO
-from truco.ai_interface import AIInterface, RandomAI
-from truco.ai_barrio import BarrioAI
+from truco.ai_interface import AIInterface
+from truco.AI.ai_random import RandomAI
+from truco.AI.ai_barrio_v1 import BarrioAI_V1
 from truco import terminal_ui as ui
 from config import INTERFAZ, IA_MODEL
 
@@ -200,9 +201,11 @@ def _manejar_truco(engine: TrucoEngine, ronda, cantor: str, nivel: str) -> None:
     oponente = engine._get_jugador(oponente_nombre)
 
     puede_subir = engine.nivel_truco + 1 < 3  # puede subir si no está en vale cuatro
+    # El respondedor puede contra-cantar envido antes de responder al truco
+    puede_envido_respuesta = engine.puede_cantar_envido()
 
     if isinstance(oponente, JugadorHumano):
-        respuesta = ui.pedir_respuesta_truco(oponente, nivel, puede_subir)
+        respuesta = ui.pedir_respuesta_truco(oponente, nivel, puede_subir, puede_envido_respuesta)
     else:
         game_state = engine.get_game_state(oponente_nombre)
         if isinstance(oponente, JugadorAI):
@@ -210,6 +213,22 @@ def _manejar_truco(engine: TrucoEngine, ronda, cantor: str, nivel: str) -> None:
         else:
             resp = {"tipo": "quiero"}
         respuesta = resp.get("tipo", "quiero")
+
+    # Pie cantó envido en respuesta al truco del mano: se resuelve el envido primero
+    if respuesta in ("envido", "real_envido", "falta_envido"):
+        _manejar_envido(engine, oponente_nombre, respuesta)
+        if engine.juego_terminado() or ronda.terminada:
+            return
+        # Después del envido, el pie responde al truco (sin opción de envido)
+        if isinstance(oponente, JugadorHumano):
+            respuesta = ui.pedir_respuesta_truco(oponente, nivel, puede_subir, False)
+        else:
+            game_state = engine.get_game_state(oponente_nombre)
+            if isinstance(oponente, JugadorAI):
+                resp = oponente.ai.responder_truco(game_state)
+            else:
+                resp = {"tipo": "quiero"}
+            respuesta = resp.get("tipo", "quiero")
 
     # El oponente puede subir la apuesta
     while respuesta in ("retruco", "vale cuatro"):
@@ -245,8 +264,8 @@ def _manejar_truco(engine: TrucoEngine, ronda, cantor: str, nivel: str) -> None:
         ronda.terminada = True
 
 def _seleccionar_ia(model: str) -> AIInterface:
-    if model == "barrio":
-        return BarrioAI()
+    if model == "barrio_v1":
+        return BarrioAI_V1()
     return RandomAI()
 
 def main() -> None:
