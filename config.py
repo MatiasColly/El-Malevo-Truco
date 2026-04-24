@@ -15,3 +15,10 @@ Cambiar la ia utilizada para jugador vs cpu:
 """
 
 IA_MODEL = "barrio_v1"
+
+# ── Arena (python arena.py) ──────────────────────────────
+
+ARENA_PARTIDAS = 1000
+ARENA_IA_1 = "barrio_v1"
+ARENA_IA_2 = "aleatoria"
+ARENA_ELO_K = 32
