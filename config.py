@@ -31,13 +31,13 @@ IA_MODEL = "barrio_v3"
 ARENA_PARTIDAS = 1000
 ARENA_IA_1 = "barrio_v2"
 ARENA_IA_2 = "barrio_v3"
-ARENA_ELO_K = 20
+ARENA_ELO_K = 5
 
 # -- Round Robin (python round_robin.py) ------------------
 
 ROUND_ROBIN_IAS: list[str] = ["aleatoria", "barrio_v1", "barrio_agresiva", "barrio_v2", "barrio_v3"]
-ROUND_ROBIN_PARTIDAS = 3000  # partidas por enfrentamiento
-ROUND_ROBIN_ELO_K = 12
+ROUND_ROBIN_PARTIDAS = 1000  # partidas por enfrentamiento
+ROUND_ROBIN_ELO_K = 5
 
 # -- Helper: instanciar IA por nombre ---------------------
 

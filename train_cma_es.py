@@ -26,7 +26,7 @@ from config import IA_REGISTRY
 GENERACIONES = 30
 PARTIDAS_POR_OPONENTE = 100
 SIGMA_INICIAL = 0.15
-OPONENTES_FIJOS = ["aleatoria", "barrio_v1", "barrio_agresiva", "barrio_v2"]
+OPONENTES_FIJOS = ["aleatoria", "barrio_v2"]
 
 PARAM_NAMES = [
     "CE_M_0_7",
