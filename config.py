@@ -20,21 +20,22 @@ IA_REGISTRY: dict[str, str] = {
     "barrio_v1":  "truco.AI.ai_barrio_v1.AiBarrioV1",
     "barrio_agresiva":  "truco.AI.ai_barrio_agresiva.AiBarrioAgresiva",
     "barrio_v2": "truco.AI.ai_barrio_v2.AiBarrioV2",
+    "barrio_v3": "truco.AI.ai_barrio_v3.AiBarrioV3",
 }
 
 # IA utilizada para jugador vs CPU (debe ser una clave de IA_REGISTRY)
-IA_MODEL = "barrio_v1"
+IA_MODEL = "barrio_v3"
 
 # -- Arena (python arena.py) ------------------------------
 
 ARENA_PARTIDAS = 1000
-ARENA_IA_1 = "barrio_v1"
-ARENA_IA_2 = "barrio_agresiva"
+ARENA_IA_1 = "barrio_v2"
+ARENA_IA_2 = "barrio_v3"
 ARENA_ELO_K = 20
 
 # -- Round Robin (python round_robin.py) ------------------
 
-ROUND_ROBIN_IAS: list[str] = ["aleatoria", "barrio_v1", "barrio_agresiva", "barrio_v2"]
+ROUND_ROBIN_IAS: list[str] = ["aleatoria", "barrio_v1", "barrio_agresiva", "barrio_v2", "barrio_v3"]
 ROUND_ROBIN_PARTIDAS = 3000  # partidas por enfrentamiento
 ROUND_ROBIN_ELO_K = 12
 
