@@ -19,6 +19,7 @@ IA_REGISTRY: dict[str, str] = {
     "aleatoria":  "truco.AI.ai_random.RandomAI",
     "barrio_v1":  "truco.AI.ai_barrio_v1.AiBarrioV1",
     "barrio_agresiva":  "truco.AI.ai_barrio_agresiva.AiBarrioAgresiva",
+    "barrio_v2": "truco.AI.ai_barrio_v2.AiBarrioV2",
 }
 
 # IA utilizada para jugador vs CPU (debe ser una clave de IA_REGISTRY)
@@ -33,9 +34,9 @@ ARENA_ELO_K = 20
 
 # -- Round Robin (python round_robin.py) ------------------
 
-ROUND_ROBIN_IAS: list[str] = ["aleatoria", "barrio_v1", "barrio_agresiva"]
-ROUND_ROBIN_PARTIDAS = 1000  # partidas por enfrentamiento
-ROUND_ROBIN_ELO_K = 20
+ROUND_ROBIN_IAS: list[str] = ["aleatoria", "barrio_v1", "barrio_agresiva", "barrio_v2"]
+ROUND_ROBIN_PARTIDAS = 3000  # partidas por enfrentamiento
+ROUND_ROBIN_ELO_K = 12
 
 # -- Helper: instanciar IA por nombre ---------------------
 
