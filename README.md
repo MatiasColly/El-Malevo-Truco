@@ -14,8 +14,9 @@ El Malevo es el viaje de un guacho con mucho potrero y pocas pulgas. Arranca jug
   - [x] Interfaz CLI
   - [x] Interfaz gráfica (Pygame + cartas españolas SVG)
   - [ ] Pulir detalles a medida que avanza el desarrollo
-- [ ] **Implementar IA básica** *(alias: IA de barrio)*
+- [x] **Implementar IA básica** *(alias: IA de barrio)*
   Juega simulando decisiones por condicionales. Genera rangos de probabilidad para elegir acciones y cartas. Trata de cantar correctamente cuando tiene buen envido o buena mano, con un grado de aleatoriedad para jugadas impredecibles.
+  - [x] Mejorar la IA básica con fine tune de sus parametros
 - [ ] **Implementar IA estadística** *(alias: Estudiante de Harvard)*
   Agrega funciones estadísticas para evaluar la calidad de la mano y el envido. Tiene en cuenta las cartas ya jugadas en la ronda.
 - [ ] **Implementar Q-Learning**
