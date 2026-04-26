@@ -1,8 +1,8 @@
 """
-CMA-ES Training — Optimización de parámetros para ai_barrio_v2.
+CMA-ES Training — Optimización de parámetros para ai_barrio_v3.
 
 Implementa CMA-ES (Covariance Matrix Adaptation Evolution Strategy) para
-optimizar los 42 parámetros de probabilidad del modelo barrio_v2.
+optimizar los 29 parámetros de probabilidad del modelo barrio_v3.
 Cada candidato se evalúa en un mini round-robin contra oponentes fijos
 para evitar overfitting.
 
@@ -26,55 +26,36 @@ from config import IA_REGISTRY
 GENERACIONES = 30
 PARTIDAS_POR_OPONENTE = 100
 SIGMA_INICIAL = 0.15
-OPONENTES_FIJOS = ["aleatoria", "barrio_v1", "barrio_agresiva"]
+OPONENTES_FIJOS = ["aleatoria", "barrio_v1", "barrio_agresiva", "barrio_v2"]
 
 PARAM_NAMES = [
     "CE_M_0_7",
-    "CE_M_20_25_MIN", "CE_M_20_25_MAX",
-    "CE_M_26_29_MIN", "CE_M_26_29_MAX",
-    "CE_M_30_33_MIN", "CE_M_30_33_MAX",
+    "CE_M_20", "CE_M_25", "CE_M_29", "CE_M_33",
     "CE_NM_0_7",
-    "CE_NM_20_25_MIN", "CE_NM_20_25_MAX",
-    "CE_NM_26_29_MIN", "CE_NM_26_29_MAX",
-    "CE_NM_30_33_MIN", "CE_NM_30_33_MAX",
-    "RE_2_20_25_MIN", "RE_2_20_25_MAX",
-    "RE_2_26_29_MIN", "RE_2_26_29_MAX",
-    "SE_2_20_25_MIN", "SE_2_20_25_MAX",
-    "SE_2_26_29_MIN", "SE_2_26_29_MAX",
-    "SE_2_30_33_MIN", "SE_2_30_33_MAX",
-    "RE_4_20_25_MIN", "RE_4_20_25_MAX",
-    "RE_4_26_29_MIN", "RE_4_26_29_MAX",
-    "RE_4_30_33_MIN", "RE_4_30_33_MAX",
-    "SE_4_20_25_MIN", "SE_4_20_25_MAX",
-    "SE_4_26_29_MIN", "SE_4_26_29_MAX",
-    "SE_4_30_33_MIN", "SE_4_30_33_MAX",
-    "RE_7_20_25_MIN", "RE_7_20_25_MAX",
-    "RE_7_26_29_MIN", "RE_7_26_29_MAX",
-    "RE_7_30_33_MIN", "RE_7_30_33_MAX",
+    "CE_NM_20", "CE_NM_25", "CE_NM_29", "CE_NM_33",
+    "RE_2_20", "RE_2_25", "RE_2_29",
+    "SE_2_20", "SE_2_25", "SE_2_29", "SE_2_33",
+    "RE_4_20", "RE_4_25", "RE_4_29", "RE_4_33",
+    "SE_4_20", "SE_4_25", "SE_4_29", "SE_4_33",
+    "RE_7_20", "RE_7_25", "RE_7_29", "RE_7_33",
 ]
 
 N_PARAMS = len(PARAM_NAMES)
-PARAMS_PATH = Path(__file__).parent / "truco" / "AI" / "ai_barrio_v2_params.py"
+PARAMS_PATH = Path(__file__).parent / "truco" / "AI" / "ai_barrio_v3_params.py"
 
 
 # ── Manejo de parámetros ────────────────────────────────
 
 def _leer_params_actuales() -> dict[str, float]:
-    from truco.AI import ai_barrio_v2_params as p
+    from truco.AI import ai_barrio_v3_params as p
     importlib.reload(p)
     return {name: getattr(p, name) for name in PARAM_NAMES}
 
 
 def _vector_a_params(vector: np.ndarray) -> dict[str, float]:
-    """Convierte vector a dict, clampeando a [0,1] y forzando MIN <= MAX."""
-    params = {name: float(np.clip(val, 0.0, 1.0))
-              for name, val in zip(PARAM_NAMES, vector)}
-    for name in PARAM_NAMES:
-        if name.endswith("_MIN"):
-            max_name = name[:-4] + "_MAX"
-            if max_name in params and params[name] > params[max_name]:
-                params[name], params[max_name] = params[max_name], params[name]
-    return params
+    """Convierte vector a dict, clampeando todos los valores a [0,1]."""
+    return {name: float(np.clip(val, 0.0, 1.0))
+            for name, val in zip(PARAM_NAMES, vector)}
 
 
 def _params_a_vector(params: dict[str, float]) -> np.ndarray:
@@ -82,8 +63,8 @@ def _params_a_vector(params: dict[str, float]) -> np.ndarray:
 
 
 def _inyectar_params(params: dict[str, float]) -> None:
-    """Modifica los globals del módulo ai_barrio_v2 para que las nuevas instancias los usen."""
-    mod_name = "truco.AI.ai_barrio_v2"
+    """Modifica los globals del módulo ai_barrio_v3 para que las nuevas instancias los usen."""
+    mod_name = "truco.AI.ai_barrio_v3"
     if mod_name not in sys.modules:
         importlib.import_module(mod_name)
     mod = sys.modules[mod_name]
@@ -92,7 +73,7 @@ def _inyectar_params(params: dict[str, float]) -> None:
 
 
 def _guardar_params(params: dict[str, float]) -> None:
-    """Reescribe ai_barrio_v2_params.py preservando comentarios y formato."""
+    """Reescribe ai_barrio_v3_params.py preservando comentarios y formato."""
     lineas = PARAMS_PATH.read_text(encoding="utf-8").splitlines(keepends=True)
     nuevas = []
     for linea in lineas:
@@ -118,11 +99,11 @@ def _evaluar_winrate(params: dict[str, float]) -> float:
     with open(os.devnull, "w") as devnull:
         for oponente in OPONENTES_FIJOS:
             for i in range(PARTIDAS_POR_OPONENTE):
-                j1, j2 = ("barrio_v2", oponente) if i % 2 == 0 else (oponente, "barrio_v2")
+                j1, j2 = ("barrio_v3", oponente) if i % 2 == 0 else (oponente, "barrio_v3")
                 with redirect_stdout(devnull):
                     ganador = simular_partida(j1, j2)
                 total += 1
-                if ganador == "barrio_v2":
+                if ganador == "barrio_v3":
                     victorias += 1
     return victorias / total if total > 0 else 0.0
 
@@ -221,7 +202,7 @@ class CMAES:
 def entrenar() -> None:
     partidas_por_eval = PARTIDAS_POR_OPONENTE * len(OPONENTES_FIJOS)
 
-    for ia in OPONENTES_FIJOS + ["barrio_v2"]:
+    for ia in OPONENTES_FIJOS + ["barrio_v3"]:
         if ia not in IA_REGISTRY:
             print(f"  ✗ IA desconocida: {ia!r}")
             print(f"    Disponibles: {list(IA_REGISTRY.keys())}")
@@ -235,7 +216,7 @@ def entrenar() -> None:
     tiempo_est = total_juegos_est / 100  # ~100 partidas/s estimado
 
     print(f"\n  ==========================================")
-    print(f"  CMA-ES TRAINING — barrio_v2")
+    print(f"  CMA-ES TRAINING — barrio_v3")
     print(f"  ==========================================")
     print(f"  Parámetros: {N_PARAMS}")
     print(f"  Población (λ): {cma.lam}  |  Padres (μ): {cma.mu}")
