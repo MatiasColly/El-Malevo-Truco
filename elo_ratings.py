@@ -3,7 +3,7 @@ ELO Ratings — Actualizado automáticamente por arena.py.
 """
 
 RATINGS: dict[str, float] = {
-    "aleatoria": 948.1,
-    "barrio_agresiva": 1122.6,
-    "barrio_v1": 961.7,
+    "aleatoria": 863.0,
+    "barrio_agresiva": 1131.8,
+    "barrio_v1": 1037.6,
 }
