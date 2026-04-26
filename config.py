@@ -9,16 +9,40 @@ Cambiar INTERFAZ para elegir modo de juego:
 INTERFAZ = "gui"
 
 """
-Cambiar la ia utilizada para jugador vs cpu:
-  - "aleatoria" → IA aleatoria: elige acciones al azar (para testing y comparación).
-  - "barrio_v1"  → IA de Barrio: IA simple basada en reglas, con heurísticas para jugar el truco y el envido.
+Registro de IAs disponibles.
+
+Cada entrada mapea un nombre corto al path completo de la clase (módulo.Clase).
+Para agregar una IA nueva, solo hay que agregar una línea acá.
 """
 
+IA_REGISTRY: dict[str, str] = {
+    "aleatoria":  "truco.AI.ai_random.RandomAI",
+    "barrio_v1":  "truco.AI.ai_barrio_v1.AiBarrioV1",
+    "barrio_agresiva":  "truco.AI.ai_barrio_agresiva.AiBarrioAgresiva",
+}
+
+# IA utilizada para jugador vs CPU (debe ser una clave de IA_REGISTRY)
 IA_MODEL = "barrio_v1"
 
-# ── Arena (python arena.py) ──────────────────────────────
+# -- Arena (python arena.py) ------------------------------
 
 ARENA_PARTIDAS = 1000
 ARENA_IA_1 = "barrio_v1"
-ARENA_IA_2 = "aleatoria"
-ARENA_ELO_K = 32
+ARENA_IA_2 = "barrio_agresiva"
+ARENA_ELO_K = 20
+
+# -- Helper: instanciar IA por nombre ---------------------
+
+def crear_ia(nombre: str):
+    """Instancia una IA a partir de su nombre en IA_REGISTRY."""
+    classpath = IA_REGISTRY.get(nombre)
+    if classpath is None:
+        disponibles = list(IA_REGISTRY.keys())
+        raise ValueError(f"IA desconocida: {nombre!r}. Disponibles: {disponibles}")
+
+    modulo_path, clase_nombre = classpath.rsplit(".", 1)
+
+    import importlib
+    modulo = importlib.import_module(modulo_path)
+    cls = getattr(modulo, clase_nombre)
+    return cls()

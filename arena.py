@@ -16,28 +16,11 @@ from pathlib import Path
 
 from truco.jugador import JugadorAI
 from truco.truco_engine import TrucoEngine
-from truco.AI.ai_random import RandomAI
-from truco.AI.ai_barrio_v1 import BarrioAI_V1
-from config import ARENA_PARTIDAS, ARENA_IA_1, ARENA_IA_2, ARENA_ELO_K
+from config import ARENA_PARTIDAS, ARENA_IA_1, ARENA_IA_2, ARENA_ELO_K, IA_REGISTRY, crear_ia
 
-
-# ── Registro de IAs ──────────────────────────────────────
-
-IA_REGISTRY: dict[str, type] = {
-    "aleatoria": RandomAI,
-    "barrio_v1": BarrioAI_V1,
-}
 
 MAX_TURNOS_RONDA = 50
 MAX_RONDAS_PARTIDA = 200
-
-
-def _crear_ia(nombre: str):
-    cls = IA_REGISTRY.get(nombre)
-    if cls is None:
-        disponibles = list(IA_REGISTRY.keys())
-        raise ValueError(f"IA desconocida: {nombre!r}. Disponibles: {disponibles}")
-    return cls()
 
 
 # ── Simulación silenciosa ────────────────────────────────
@@ -195,8 +178,8 @@ def _simular_ronda(engine) -> None:
 
 def simular_partida(ia1_nombre: str, ia2_nombre: str) -> str | None:
     """Simula una partida completa. Retorna el nombre de la IA ganadora."""
-    j1 = JugadorAI("Jugador_1", _crear_ia(ia1_nombre))
-    j2 = JugadorAI("Jugador_2", _crear_ia(ia2_nombre))
+    j1 = JugadorAI("Jugador_1", crear_ia(ia1_nombre))
+    j2 = JugadorAI("Jugador_2", crear_ia(ia2_nombre))
     engine = TrucoEngine(j1, j2)
 
     rondas = 0

@@ -86,7 +86,7 @@ from ..ai_interface import AIInterface
 #                      | {"tipo": "retruco"} | {"tipo": "vale cuatro"}
 # ─────────────────────────────────────────────────────────────────────────────
 
-class AiBarrioV1(AIInterface):
+class AiBarrioAgresiva(AIInterface):
     """IA de barrio, hecha a mano, a la vieja escuela."""
 
     def elegir_accion(self, game_state: dict) -> dict:
@@ -222,13 +222,13 @@ class AiBarrioV1(AIInterface):
             if envido_propio <= 20:
                 probabilidad_de_querer = 0
             elif envido_propio <= 25:
-                probabilidad_de_querer = 0.05
+                probabilidad_de_querer = 0.3
             elif envido_propio <= 26:
-                probabilidad_de_querer = 0.15
+                probabilidad_de_querer = 0.4
             elif envido_propio >= 30:
                 probabilidad_de_querer = 1.0
             else:
-                probabilidad_de_querer = self.interpolate(envido_propio, 27, 30, 0.50, 1.0)
+                probabilidad_de_querer = self.interpolate(envido_propio, 27, 30, 0.70, 1.0)
 
             if self._probabilidad_a_decision(probabilidad_de_querer):
                 if envido_propio <= 27:
@@ -252,12 +252,14 @@ class AiBarrioV1(AIInterface):
 
             if envido_propio <= 20:
                 probabilidad_de_querer = 0
+            elif envido_propio <= 25:
+                probabilidad_de_querer = 0.3
             elif envido_propio <= 26:
-                probabilidad_de_querer = 0.1
+                probabilidad_de_querer = 0.4
             elif envido_propio >= 30:
                 probabilidad_de_querer = 1.0
             else:
-                probabilidad_de_querer = self.interpolate(envido_propio, 27, 30, 0.3, 1.0)
+                probabilidad_de_querer = self.interpolate(envido_propio, 27, 30, 0.70, 1.0)
 
             if self._probabilidad_a_decision(probabilidad_de_querer):
                 return {"tipo": "quiero"}
@@ -328,15 +330,15 @@ class AiBarrioV1(AIInterface):
     """
     def _envido_propio_a_probabilidades(self, puntos: int, soy_mano: bool) -> float:
         if soy_mano:
-            if puntos <= 7:
-                return 0.07
+            if puntos <= 20:
+                return 0.5
             else:
-                return self.interpolate(puntos, 20, 33, 0.07, 0.85)
+                return self.interpolate(puntos, 20, 33, 0.5, 0.85)
         else:
             if puntos <= 7:
-                return 0.15
+                return 0.5
             elif puntos <= 30:
-                return self.interpolate(puntos, 20, 30, 0.15, 1.0)
+                return self.interpolate(puntos, 20, 30, 0.5, 1.0)
             else:
                 return 1.0
 

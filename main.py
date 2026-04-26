@@ -6,11 +6,8 @@ Juego por terminal: Humano vs IA (placeholder aleatorio).
 
 from truco.jugador import JugadorHumano, JugadorAI
 from truco.truco_engine import TrucoEngine, NOMBRES_TRUCO
-from truco.ai_interface import AIInterface
-from truco.AI.ai_random import RandomAI
-from truco.AI.ai_barrio_v1 import BarrioAI_V1
 from truco import terminal_ui as ui
-from config import INTERFAZ, IA_MODEL
+from config import INTERFAZ, IA_MODEL, crear_ia
 
 
 def jugar_ronda(engine: TrucoEngine) -> None:
@@ -263,11 +260,6 @@ def _manejar_truco(engine: TrucoEngine, ronda, cantor: str, nivel: str) -> None:
         ronda.ganador_ronda = cantor
         ronda.terminada = True
 
-def _seleccionar_ia(model: str) -> AIInterface:
-    if model == "barrio_v1":
-        return BarrioAI_V1()
-    return RandomAI()
-
 def main() -> None:
     """Punto de entrada del juego."""
     if INTERFAZ == "gui":
@@ -282,7 +274,7 @@ def main_gui() -> None:
 
     nombre = "Jugador"
     humano = JugadorHumano(nombre)
-    cpu = JugadorAI("CPU", _seleccionar_ia(IA_MODEL))
+    cpu = JugadorAI("CPU", crear_ia(IA_MODEL))
     engine = TrucoEngine(humano, cpu)
 
     gui = TrucoGUI(engine)
@@ -296,7 +288,7 @@ def main_cli() -> None:
 
     nombre = input("\n  Tu nombre: ").strip() or "Jugador"
     humano = JugadorHumano(nombre)
-    cpu = JugadorAI("CPU", _seleccionar_ia(IA_MODEL))
+    cpu = JugadorAI("CPU", crear_ia(IA_MODEL))
 
     engine = TrucoEngine(humano, cpu)
 
