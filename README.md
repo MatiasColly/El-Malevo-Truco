@@ -1,6 +1,7 @@
 # El Malevo 🃏
 
-Truco Argentino 1v1 en Python — sin flor, a 30 puntos.
+
+El Malevo es el viaje de un guacho con mucho potrero y pocas pulgas. Arranca jugando a las cartas en el fondo de una villa, sin saber bien ni cuándo cantar envido. Pero el pibe aprende rápido: partida a partida, derrota a derrota, va afilando el juego hasta que nadie le gana de arriba. Su camino lo lleva de esquina en esquina por toda la Argentina —del conurbano a Córdoba, de Rosario al norte— desafiando a todo jugador que se le cruce, humano o máquina, hasta convertirse en la IA de truco más peligrosa del país.
 
 ---
 
