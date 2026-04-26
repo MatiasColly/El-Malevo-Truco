@@ -2,7 +2,7 @@
 CMA-ES Training — Optimización de parámetros para ai_barrio_v3.
 
 Implementa CMA-ES (Covariance Matrix Adaptation Evolution Strategy) para
-optimizar los 29 parámetros de probabilidad del modelo barrio_v3.
+optimizar los 13 parámetros de truco/carta del modelo barrio_v3.
 Cada candidato se evalúa en un mini round-robin contra oponentes fijos
 para evitar overfitting.
 
@@ -25,19 +25,27 @@ from config import IA_REGISTRY
 
 GENERACIONES = 30
 PARTIDAS_POR_OPONENTE = 100
-SIGMA_INICIAL = 0.15
+SIGMA_INICIAL = 0.1
 OPONENTES_FIJOS = ["aleatoria", "barrio_v2"]
 
 PARAM_NAMES = [
-    "CE_M_0_7",
-    "CE_M_20", "CE_M_25", "CE_M_29", "CE_M_33",
-    "CE_NM_0_7",
-    "CE_NM_20", "CE_NM_25", "CE_NM_29", "CE_NM_33",
-    "RE_2_20", "RE_2_25", "RE_2_29",
-    "SE_2_20", "SE_2_25", "SE_2_29", "SE_2_33",
-    "RE_4_20", "RE_4_25", "RE_4_29", "RE_4_33",
-    "SE_4_20", "SE_4_25", "SE_4_29", "SE_4_33",
-    "RE_7_20", "RE_7_25", "RE_7_29", "RE_7_33",
+    # Responder Truco
+    "RT_UMBRAL_SUBIR",
+    "RT_UMBRAL_NO_QUERER",
+    "RT_PROB_REAL_ENVIDO",
+    # Elegir Primera Carta
+    "EP1_PROB_ALTA",
+    "EP1_PROB_BAJA_COND",
+    # Elegir Segunda Carta
+    "ES2_PROB_ALTA",
+    # Canto Truco
+    "CT_BLUFF_INF",
+    "CT_BLUFF_SUP",
+    "CT_PROB_BLUFF",
+    "CT_UMBRAL_GANAR_TRAS_PERDER",
+    "CT_UMBRAL_BLUFF_GANAR",
+    "CT_OFFSET_PROP",
+    "CT_PROB_COIN_FLIP",
 ]
 
 N_PARAMS = len(PARAM_NAMES)
