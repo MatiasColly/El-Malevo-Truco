@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 
 NUMEROS = (1, 2, 3, 4, 5, 6, 7, 10, 11, 12)
 
+# Las 40 cartas se crean una sola vez: son inmutables, así que todas las
+# rondas y partidas comparten las mismas instancias (evita recrear 40
+# objetos por ronda durante entrenamientos masivos).
+_CARTAS_BASE: tuple[Carta, ...] = tuple(Carta(n, p) for n in NUMEROS for p in PALOS)
+
 
 class Mazo:
     """Mazo español de 40 cartas."""
@@ -22,7 +27,7 @@ class Mazo:
 
     def reset(self) -> None:
         """Reconstruye y mezcla el mazo."""
-        self.cartas = [Carta(n, p) for n in NUMEROS for p in PALOS]
+        self.cartas = list(_CARTAS_BASE)
         self.mezclar()
 
     def mezclar(self) -> None:

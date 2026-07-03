@@ -266,6 +266,7 @@ def arena() -> None:
     inicio = time.time()
     paso = max(1, n // 10)
 
+    devnull = open(os.devnull, "w")
     for i in range(n):
         # Alternar quién es jugador1 cada partida
         if i % 2 == 0:
@@ -273,7 +274,7 @@ def arena() -> None:
         else:
             j1_ia, j2_ia = ia2, ia1
 
-        with open(os.devnull, "w") as devnull, redirect_stdout(devnull):
+        with redirect_stdout(devnull):
             ganador = simular_partida(j1_ia, j2_ia)
 
         if ganador:
@@ -297,6 +298,7 @@ def arena() -> None:
                 f"ELO: {ratings[ia1]:.0f} / {ratings[ia2]:.0f}"
             )
 
+    devnull.close()
     elapsed = time.time() - inicio
     total = victorias[ia1] + victorias[ia2] + empates
 

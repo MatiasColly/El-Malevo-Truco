@@ -63,7 +63,7 @@ NOMBRE_NUMERO = {
 class Carta:
     """Representa una carta española."""
 
-    __slots__ = ("numero", "palo", "poder", "valor_envido")
+    __slots__ = ("numero", "palo", "poder", "valor_envido", "_dict")
 
     def __init__(self, numero: int, palo: str) -> None:
         self.numero = numero
@@ -71,6 +71,15 @@ class Carta:
         self.poder: int = JERARQUIA[(numero, palo)]
         # Para envido: figuras (10,11,12) valen 0, el resto su número
         self.valor_envido: int = 0 if numero >= 10 else numero
+        # Dict pre-armado para game_state: la carta es inmutable, así que se
+        # comparte la misma instancia en cada get_game_state (las IAs lo
+        # tratan como solo lectura por contrato de AIInterface).
+        self._dict: dict = {
+            "numero": numero,
+            "palo": palo,
+            "poder": self.poder,
+            "valor_envido": self.valor_envido,
+        }
 
     def __repr__(self) -> str:
         nombre = NOMBRE_NUMERO.get(self.numero, str(self.numero))
@@ -88,10 +97,5 @@ class Carta:
         return hash((self.numero, self.palo))
 
     def to_dict(self) -> dict:
-        """Serializa la carta para estado de IA."""
-        return {
-            "numero": self.numero,
-            "palo": self.palo,
-            "poder": self.poder,
-            "valor_envido": self.valor_envido,
-        }
+        """Dict para el estado de IA. Compartido: tratarlo como solo lectura."""
+        return self._dict

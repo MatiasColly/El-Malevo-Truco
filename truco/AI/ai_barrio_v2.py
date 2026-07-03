@@ -98,9 +98,9 @@ class AiBarrioV2(AIInterface):
         soy_mano = game_state.get("es_mano", False)
         bazas = game_state.get("bazas", [])
 
-        print("Mano: ", mano)
-        print("Soy Mano: ", soy_mano)
-        print("Cartas oponente: ", cartas_jugadas_oponente)
+        self._log("Mano: ", mano)
+        self._log("Soy Mano: ", soy_mano)
+        self._log("Cartas oponente: ", cartas_jugadas_oponente)
 
         # ------------- Evalúo Envido ------------- #
 
@@ -110,7 +110,7 @@ class AiBarrioV2(AIInterface):
 
                 envido_propio = game_state.get("envido_propio", 0)
                 prob_cantar_envido = self._envido_propio_a_probabilidades(envido_propio, soy_mano)
-                print("Probabilidad de cantar envido:", prob_cantar_envido, ", puntos envido:", envido_propio)
+                self._log("Probabilidad de cantar envido:", prob_cantar_envido, ", puntos envido:", envido_propio)
 
                 if self._probabilidad_a_decision(prob_cantar_envido):
                     if self._probabilidad_a_decision(0.25):
@@ -197,8 +197,8 @@ class AiBarrioV2(AIInterface):
         envido_secuencia = game_state.get("envido_secuencia", 0)
         envido_en_juego = game_state.get("envido_en_juego", 0)
 
-        print("Envido propio:", envido_propio)
-        print("Envido secuencia:", envido_secuencia)
+        self._log("Envido propio:", envido_propio)
+        self._log("Envido secuencia:", envido_secuencia)
 
         if "falta_envido" in envido_secuencia:
             if envido_en_juego == 1:
@@ -328,7 +328,7 @@ class AiBarrioV2(AIInterface):
 
         # No debería caer aca
         else:
-            print("Cayo! Que paso??")
+            self._log("Cayo! Que paso??")
             return {"tipo": "no_quiero"}
 
     """ Lógica: 
@@ -389,8 +389,8 @@ class AiBarrioV2(AIInterface):
         chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente,
                                                         cartas_jugadas_propias, es_mi_turno)
 
-        print("Mano:", mano)
-        print("Truco del humano. Chance de ganar la ronda:", chance_de_ganar)
+        self._log("Mano:", mano)
+        self._log("Truco del humano. Chance de ganar la ronda:", chance_de_ganar)
 
         # Código duplicado! Si me quieren meter truco en primera me fijo si le puedo meter envido
         if len(bazas) == 0:
@@ -399,7 +399,7 @@ class AiBarrioV2(AIInterface):
 
                 envido_propio = game_state.get("envido_propio", 0)
                 prob_cantar_envido = self._envido_propio_a_probabilidades(envido_propio, soy_mano)
-                print("Probabilidad de cantar envido:", prob_cantar_envido, ", puntos envido:", envido_propio)
+                self._log("Probabilidad de cantar envido:", prob_cantar_envido, ", puntos envido:", envido_propio)
 
                 if self._probabilidad_a_decision(prob_cantar_envido):
                     if self._probabilidad_a_decision(0.25):
@@ -435,13 +435,13 @@ class AiBarrioV2(AIInterface):
     def _elegir_primera_carta(self, mano) -> dict:
         mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
         if self._probabilidad_a_decision(0.4):
-            print("Elijo la carta mas alta")
+            self._log("Elijo la carta mas alta")
             return mano_ordenada[2]
         elif self._probabilidad_a_decision(0.66666):
-            print("Elijo la carta mas baja")
+            self._log("Elijo la carta mas baja")
             return mano_ordenada[0]
         else:
-            print("Elijo la carta del medio")
+            self._log("Elijo la carta del medio")
             return mano_ordenada[1]
 
     """ Lógica básica: matamos con lo justo, si no podemos jugamos la mas baja """
@@ -470,14 +470,14 @@ class AiBarrioV2(AIInterface):
         mano_ordenada = sorted(mano, key=lambda c: c.get("poder", 0))
 
         if mano_ordenada[1]["poder"] >= 10:
-            print("Dejo la grande, voy por la baja")
+            self._log("Dejo la grande, voy por la baja")
             return mano_ordenada[0]
 
         elif self._probabilidad_a_decision(0.3):
-            print("Elijo la carta mas alta")
+            self._log("Elijo la carta mas alta")
             return mano_ordenada[1]
         else:
-            print("Elijo la carta mas baja")
+            self._log("Elijo la carta mas baja")
             return mano_ordenada[0]
 
     def canto_truco(self, game_state: dict) -> bool:
@@ -493,7 +493,7 @@ class AiBarrioV2(AIInterface):
 
         chance_de_ganar = self._estimar_chance_de_ganar(mano, bazas, soy_mano, ultima_carta_oponente,
                                                         ultima_carta_propia, es_mi_turno)
-        print("Chance de ganar la ronda:", chance_de_ganar)
+        self._log("Chance de ganar la ronda:", chance_de_ganar)
 
         if len(bazas) == 0:
             # Si tenemos cartas muy feas, podemos mentir para correrlo. Si tenemos muy buenas, podemos cantarle rapido
@@ -567,11 +567,11 @@ class AiBarrioV2(AIInterface):
 
             # Resultados certeros por la estimación de jugar ahora
             if ya_ganadas == 2:
-                print("Ganada certera")
+                self._log("Ganada certera")
                 return 1.0
 
             if ya_perdidas == 2:
-                print("Perdida certera")
+                self._log("Perdida certera")
                 return 0.0
 
         # Baza 1, 2 o 3, ya gané la primera baza, y tengo otra buena

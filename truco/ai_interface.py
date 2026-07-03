@@ -64,6 +64,16 @@ class AIInterface(ABC):
         {"tipo": "mazo"}                        — rendirse / irse al mazo
     """
 
+    # Log de razonamiento de la IA. Con debug=False (default) _log no formatea
+    # ni imprime nada: crítico para la velocidad de arena/entrenamiento, donde
+    # los print() consumían ~30% del tiempo aunque fueran redirigidos a devnull.
+    # Poner AIInterface.debug = True para ver el razonamiento jugando por CLI.
+    debug: bool = False
+
+    def _log(self, *args) -> None:
+        if self.debug:
+            print(*args)
+
     @abstractmethod
     def elegir_accion(self, game_state: dict) -> dict:
         """

@@ -18,10 +18,12 @@ class Jugador:
         self.mano: list[Carta] = []
         self.cartas_ronda: list[Carta] = []  # las 3 cartas originales de la ronda
         self.puntos: int = 0
+        self._envido: int = 0  # cacheado por ronda (get_game_state lo pide por turno)
 
     def recibir_cartas(self, cartas: list[Carta]) -> None:
         self.mano = list(cartas)
         self.cartas_ronda = list(cartas)
+        self._envido = self._calcular_envido(self.cartas_ronda)
 
     def tiene_cartas(self) -> bool:
         return len(self.mano) > 0
@@ -31,19 +33,24 @@ class Jugador:
         return self.mano.pop(indice)
 
     def calcular_envido(self) -> int:
-        """Calcula el mejor envido usando las 3 cartas originales de la ronda."""
-        from itertools import combinations
+        """Mejor envido de la ronda (calculado al repartir, constante hasta la próxima)."""
+        return self._envido
 
-        cartas = self.cartas_ronda
+    @staticmethod
+    def _calcular_envido(cartas: list[Carta]) -> int:
+        """Calcula el mejor envido con las 3 cartas originales de la ronda."""
         if not cartas:
             return 0
 
         mejor = max(c.valor_envido for c in cartas)
 
-        for c1, c2 in combinations(cartas, 2):
-            if c1.palo == c2.palo:
-                valor = 20 + c1.valor_envido + c2.valor_envido
-                mejor = max(mejor, valor)
+        n = len(cartas)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if cartas[i].palo == cartas[j].palo:
+                    valor = 20 + cartas[i].valor_envido + cartas[j].valor_envido
+                    if valor > mejor:
+                        mejor = valor
 
         return mejor
 
