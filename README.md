@@ -93,8 +93,8 @@ El Malevo es el viaje de un guacho con mucho potrero y pocas pulgas. Arranca jug
 ## Instalación y uso
 
 ```bash
-pip install pygame requests
-python download_assets.py   # descarga las cartas SVG (solo la primera vez)
+pip install pygame requests numpy
+python download_assets.py   # descarga y recorta las cartas (solo la primera vez)
 python main.py
 ```
 
@@ -108,4 +108,5 @@ INTERFAZ = "gui"   # o "cli"
 
 ## Créditos de assets
 
-Cartas españolas SVG: [gjenkins20/spanish-playing-cards-svg](https://github.com/gjenkins20/spanish-playing-cards-svg) — licencia CC BY-SA 3.0.
+- Cartas: baraja **Heraclio Fournier "Vitoria"** (diseño de Augusto Rius, 1889). Fotos de [Cantabrucu en Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Castilian_pattern) — licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.es). `download_assets.py` las recorta y escala automáticamente.
+- Dorso: reverso clásico Fournier, de [Basquetteur y Germarquezm en Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Atras.png) — licencia CC BY-SA 3.0.

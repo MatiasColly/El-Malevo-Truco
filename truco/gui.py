@@ -27,16 +27,21 @@ FPS = 30
 # Colores
 VERDE_MESA = (34, 102, 51)
 VERDE_OSCURO = (24, 72, 36)
+VERDE_ZONA = (44, 118, 62)      # zona central de juego
+VERDE_PANEL = (18, 52, 28)      # paneles y diálogos
 BLANCO = (255, 255, 255)
 NEGRO = (0, 0, 0)
 AMARILLO = (255, 215, 0)
 ROJO = (200, 50, 50)
-GRIS = (180, 180, 180)
+GRIS = (190, 190, 190)
 GRIS_OSCURO = (80, 80, 80)
 AZUL = (50, 100, 200)
 CREMA = (245, 235, 210)
 MARRON = (139, 90, 43)
+MARRON_MARCO = (110, 70, 34)    # marco de madera
+MARRON_CLARO = (150, 100, 52)
 DORADO = (218, 165, 32)
+DORADO_SUAVE = (170, 140, 70)
 
 # Tamaños de carta
 CARTA_W, CARTA_H = 90, 140
@@ -47,6 +52,7 @@ MANO_Y = ALTO - CARTA_H - 30
 MESA_Y = ALTO // 2 - CARTA_H // 2
 CPU_Y = 25
 SCORE_X = ANCHO - 220
+MESA_CX = (ANCHO - 220) // 2  # centro horizontal del área de juego (el panel derecho ocupa 220)
 
 # ── Assets ────────────────────────────────────────────────
 
@@ -60,19 +66,40 @@ class CardRenderer:
         self._cache: dict[str, pygame.Surface] = {}
         self._dorso: pygame.Surface | None = None
 
-    def _svg_path(self, numero: int, palo: str) -> str:
-        return os.path.join(ASSETS_DIR, f"{numero}_{palo}.svg")
+    def _path_carta(self, numero: int, palo: str) -> str | None:
+        for ext in ("jpg", "png", "svg"):
+            path = os.path.join(ASSETS_DIR, f"{numero}_{palo}.{ext}")
+            if os.path.exists(path):
+                return path
+        return None
 
-    def _dorso_path(self) -> str:
-        return os.path.join(ASSETS_DIR, "dorso.svg")
+    def _dorso_path(self) -> str | None:
+        for ext in ("png", "jpg", "svg"):
+            path = os.path.join(ASSETS_DIR, f"dorso.{ext}")
+            if os.path.exists(path):
+                return path
+        return None
+
+    @staticmethod
+    def _redondear_esquinas(surf: pygame.Surface) -> pygame.Surface:
+        """Aplica esquinas redondeadas a una carta rasterizada (foto)."""
+        radio = max(4, surf.get_height() // 16)
+        mask = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=radio)
+        out = surf.convert_alpha()
+        out.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        return out
 
     def get(self, carta: Carta, size: tuple[int, int] = (CARTA_W, CARTA_H)) -> pygame.Surface:
         key = f"{carta.numero}_{carta.palo}_{size[0]}x{size[1]}"
         if key not in self._cache:
-            path = self._svg_path(carta.numero, carta.palo)
-            if os.path.exists(path):
+            path = self._path_carta(carta.numero, carta.palo)
+            if path:
                 raw = pygame.image.load(path)
-                self._cache[key] = pygame.transform.smoothscale(raw, size)
+                img = pygame.transform.smoothscale(raw, size)
+                if not path.endswith(".svg"):
+                    img = self._redondear_esquinas(img)
+                self._cache[key] = img
             else:
                 self._cache[key] = self._generar_carta(carta, size)
         return self._cache[key]
@@ -81,9 +108,12 @@ class CardRenderer:
         key = f"dorso_{size[0]}x{size[1]}"
         if key not in self._cache:
             path = self._dorso_path()
-            if os.path.exists(path):
+            if path:
                 raw = pygame.image.load(path)
-                self._cache[key] = pygame.transform.smoothscale(raw, size)
+                img = pygame.transform.smoothscale(raw.convert_alpha(), size)
+                if not path.endswith(".svg"):
+                    img = self._redondear_esquinas(img)
+                self._cache[key] = img
             else:
                 self._cache[key] = self._generar_dorso(size)
         return self._cache[key]
@@ -146,9 +176,14 @@ class Boton:
     def draw(self, screen: pygame.Surface, font: pygame.font.Font) -> None:
         if not self.visible:
             return
+        sombra = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(sombra, (0, 0, 0, 90), sombra.get_rect(), border_radius=10)
+        screen.blit(sombra, (self.rect.x, self.rect.y + 3))
+
         c = self.color_hover if self.hover else self.color
-        pygame.draw.rect(screen, c, self.rect, border_radius=8)
-        pygame.draw.rect(screen, NEGRO, self.rect, 2, border_radius=8)
+        pygame.draw.rect(screen, c, self.rect, border_radius=10)
+        borde = tuple(min(255, x + 55) for x in c)
+        pygame.draw.rect(screen, borde, self.rect, 2, border_radius=10)
         txt = font.render(self.texto, True, self.color_texto)
         tx = self.rect.centerx - txt.get_width() // 2
         ty = self.rect.centery - txt.get_height() // 2
@@ -175,11 +210,19 @@ class TrucoGUI:
         self.renderer = CardRenderer()
 
         # Fonts
-        self.font_grande = pygame.font.SysFont("Arial", 28, bold=True)
-        self.font_medio = pygame.font.SysFont("Arial", 20, bold=True)
-        self.font_chico = pygame.font.SysFont("Arial", 16)
-        self.font_titulo = pygame.font.SysFont("Arial", 36, bold=True)
-        self.font_boton = pygame.font.SysFont("Arial", 17, bold=True)
+        fuentes = "segoeui,arial"
+        self.font_grande = pygame.font.SysFont(fuentes, 28, bold=True)
+        self.font_medio = pygame.font.SysFont(fuentes, 20, bold=True)
+        self.font_chico = pygame.font.SysFont(fuentes, 15)
+        self.font_mini = pygame.font.SysFont(fuentes, 12, bold=True)
+        self.font_titulo = pygame.font.SysFont(fuentes, 36, bold=True)
+        self.font_boton = pygame.font.SysFont(fuentes, 17, bold=True)
+        self.font_puntos = pygame.font.SysFont(fuentes, 26, bold=True)
+
+        # Superficies pre-renderizadas y animación
+        self.fondo = self._crear_fondo()
+        self._lift = [0.0, 0.0, 0.0]  # elevación animada de cada carta de la mano
+        self._sombras: dict[tuple[int, int, int], pygame.Surface] = {}
 
         # Estado
         self.estado = Estado.PLAYER_TURN
@@ -785,6 +828,11 @@ class TrucoGUI:
         if self.mensaje_timer > 0:
             self.mensaje_timer -= dt
 
+        # Animación de elevación de la carta bajo el mouse
+        for i in range(len(self._lift)):
+            objetivo = 16.0 if (i == self.carta_hover and self.estado == Estado.PLAYER_TURN) else 0.0
+            self._lift[i] += (objetivo - self._lift[i]) * min(1.0, dt * 14)
+
         if self.estado == Estado.CPU_THINKING:
             self.cpu_timer -= dt
             if self.cpu_timer <= 0:
@@ -816,16 +864,59 @@ class TrucoGUI:
 
     # ── Draw ──────────────────────────────────────────────
 
+    def _crear_fondo(self) -> pygame.Surface:
+        """Pre-renderiza el fondo: paño con gradiente, zona de juego y marco de madera."""
+        fondo = pygame.Surface((ANCHO, ALTO))
+
+        # Gradiente vertical: más claro hacia el centro de la mesa
+        centro_c = (46, 124, 64)
+        borde_c = (26, 76, 40)
+        for y in range(ALTO):
+            t = min(1.0, abs(y - ALTO * 0.45) / (ALTO * 0.55))
+            c = tuple(int(centro_c[i] + (borde_c[i] - centro_c[i]) * t) for i in range(3))
+            pygame.draw.line(fondo, c, (0, y), (ANCHO, y))
+
+        # Zona central de juego (elipse con costura dorada)
+        zona = pygame.Rect(0, 0, 640, 380)
+        zona.center = (MESA_CX, ALTO // 2)
+        pygame.draw.ellipse(fondo, VERDE_ZONA, zona)
+        pygame.draw.ellipse(fondo, (20, 60, 32), zona, 3)
+        pygame.draw.ellipse(fondo, DORADO_SUAVE, zona.inflate(16, 16), 2)
+
+        # Marco de madera
+        pygame.draw.rect(fondo, MARRON_MARCO, fondo.get_rect(), 12)
+        pygame.draw.rect(fondo, MARRON_CLARO, fondo.get_rect().inflate(-6, -6), 3)
+        pygame.draw.rect(fondo, (60, 38, 18), fondo.get_rect(), 2)
+        return fondo
+
+    def _sombra_carta(self, x: int, y: int, w: int, h: int, alpha: int = 80) -> None:
+        """Dibuja una sombra redondeada debajo de una carta (cacheada por tamaño)."""
+        key = (w, h, alpha)
+        if key not in self._sombras:
+            s = pygame.Surface((w, h), pygame.SRCALPHA)
+            pygame.draw.rect(s, (0, 0, 0, alpha), s.get_rect(), border_radius=10)
+            self._sombras[key] = s
+        self.screen.blit(self._sombras[key], (x + 4, y + 6))
+
+    def _draw_panel(self, rect: pygame.Rect) -> None:
+        """Panel oscuro con sombra y borde dorado (diálogos, marcador)."""
+        sombra = pygame.Surface(rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(sombra, (0, 0, 0, 120), sombra.get_rect(), border_radius=14)
+        self.screen.blit(sombra, (rect.x + 4, rect.y + 6))
+        pygame.draw.rect(self.screen, VERDE_PANEL, rect, border_radius=14)
+        pygame.draw.rect(self.screen, DORADO, rect, 3, border_radius=14)
+
     def _draw(self) -> None:
-        self.screen.fill(VERDE_MESA)
+        self.screen.blit(self.fondo, (0, 0))
         self._draw_titulo()
         self._draw_score()
+        self._draw_info_truco()
+        self._draw_indicador_turno()
         self._draw_cartas_cpu()
         self._draw_mesa()
         self._draw_cartas_jugador()
         self._draw_botones()
         self._draw_mensaje()
-        self._draw_info_truco()
 
         if self.estado == Estado.ENVIDO_RESPONSE:
             self._draw_dialogo_envido()
@@ -836,49 +927,86 @@ class TrucoGUI:
 
     def _draw_titulo(self) -> None:
         txt = self.font_titulo.render("El Malevo", True, DORADO)
-        self.screen.blit(txt, (20, 10))
+        self.screen.blit(txt, (24, 14))
+        sub = self.font_chico.render("Truco Argentino", True, DORADO_SUAVE)
+        self.screen.blit(sub, (26, 10 + txt.get_height()))
 
     def _draw_score(self) -> None:
         j1 = self.engine.jugador1
         j2 = self.engine.jugador2
 
-        # Panel de puntuación
-        panel = pygame.Rect(ANCHO - 220, 15, 200, 120)
-        pygame.draw.rect(self.screen, VERDE_OSCURO, panel, border_radius=10)
-        pygame.draw.rect(self.screen, DORADO, panel, 2, border_radius=10)
+        panel = pygame.Rect(ANCHO - 220, 15, 200, 158)
+        self._draw_panel(panel)
 
-        header = self.font_medio.render("PUNTUACIÓN", True, DORADO)
-        self.screen.blit(header, (panel.x + panel.w // 2 - header.get_width() // 2, panel.y + 8))
+        header = self.font_chico.render(f"PRIMERO A {PUNTOS_OBJETIVO}", True, DORADO_SUAVE)
+        self.screen.blit(header, (panel.centerx - header.get_width() // 2, panel.y + 10))
 
-        txt1 = self.font_medio.render(f"{j1.nombre}: {j1.puntos}", True, BLANCO)
-        txt2 = self.font_medio.render(f"{j2.nombre}: {j2.puntos}", True, BLANCO)
-        self.screen.blit(txt1, (panel.x + 15, panel.y + 40))
-        self.screen.blit(txt2, (panel.x + 15, panel.y + 68))
+        for idx, j in enumerate((j1, j2)):
+            y = panel.y + 38 + idx * 60
 
-        meta = self.font_chico.render(f"Objetivo: {PUNTOS_OBJETIVO}", True, GRIS)
-        self.screen.blit(meta, (panel.x + 15, panel.y + 96))
+            nombre = self.font_chico.render(j.nombre, True, BLANCO)
+            self.screen.blit(nombre, (panel.x + 14, y))
+
+            if self.engine.mano_nombre == j.nombre:
+                chip_txt = self.font_mini.render("MANO", True, NEGRO)
+                chip = pygame.Rect(0, 0, chip_txt.get_width() + 10, chip_txt.get_height() + 4)
+                chip.topleft = (panel.x + 14 + nombre.get_width() + 8, y + 1)
+                pygame.draw.rect(self.screen, DORADO, chip, border_radius=6)
+                self.screen.blit(chip_txt, (chip.x + 5, chip.y + 2))
+
+            pts = self.font_puntos.render(str(j.puntos), True, AMARILLO)
+            self.screen.blit(pts, (panel.right - 16 - pts.get_width(), y - 6))
+
+            # Barra de progreso; la marca del medio separa malas de buenas
+            barra = pygame.Rect(panel.x + 14, y + 26, panel.w - 28, 8)
+            pygame.draw.rect(self.screen, (10, 30, 16), barra, border_radius=4)
+            frac = min(1.0, j.puntos / PUNTOS_OBJETIVO)
+            if frac > 0:
+                fill = pygame.Rect(barra.x, barra.y, max(6, int(barra.w * frac)), barra.h)
+                pygame.draw.rect(self.screen, DORADO, fill, border_radius=4)
+            mx = barra.x + barra.w // 2
+            pygame.draw.line(self.screen, GRIS, (mx, barra.y - 1), (mx, barra.bottom + 1), 1)
 
     def _draw_info_truco(self) -> None:
-        """Muestra el nivel de truco actual."""
-        if self.engine.nivel_truco > 0:
-            nivel_txt = NOMBRES_TRUCO[self.engine.nivel_truco].upper()
-            txt = self.font_medio.render(f"🔥 {nivel_txt}", True, AMARILLO)
-            self.screen.blit(txt, (ANCHO - 220, 145))
+        """Muestra el nivel de truco actual como cartel."""
+        if self.engine.nivel_truco <= 0:
+            return
+        nivel_txt = NOMBRES_TRUCO[self.engine.nivel_truco].upper()
+        txt = self.font_medio.render(nivel_txt, True, NEGRO)
+        badge = pygame.Rect(0, 0, txt.get_width() + 26, txt.get_height() + 12)
+        badge.topleft = (ANCHO - 220, 185)
+        pygame.draw.rect(self.screen, AMARILLO, badge, border_radius=10)
+        pygame.draw.rect(self.screen, (120, 90, 0), badge, 2, border_radius=10)
+        self.screen.blit(txt, (badge.x + 13, badge.y + 6))
 
-        # Mano indicator
-        mano_txt = self.font_chico.render(f"Mano: {self.engine.mano_nombre}", True, GRIS)
-        self.screen.blit(mano_txt, (ANCHO - 220, 172))
+    def _draw_indicador_turno(self) -> None:
+        """Pastilla sobre la mano indicando de quién es el turno."""
+        if self.estado == Estado.PLAYER_TURN:
+            texto, color = "Tu turno — jugá una carta o cantá", AMARILLO
+        elif self.estado == Estado.CPU_THINKING:
+            puntos = "." * (1 + int(time.time() * 2) % 3)
+            texto, color = f"{self.engine.jugador2.nombre} está pensando{puntos}", GRIS
+        else:
+            return
+        txt = self.font_chico.render(texto, True, color)
+        pill = pygame.Rect(0, 0, txt.get_width() + 24, txt.get_height() + 10)
+        pill.center = (MESA_CX, MANO_Y - 36)
+        s = pygame.Surface(pill.size, pygame.SRCALPHA)
+        pygame.draw.rect(s, (0, 0, 0, 110), s.get_rect(), border_radius=pill.h // 2)
+        self.screen.blit(s, pill.topleft)
+        self.screen.blit(txt, (pill.x + 12, pill.y + 5))
 
     def _draw_cartas_cpu(self) -> None:
         """Dibuja las cartas de la CPU (dorso)."""
         cpu = self.engine.jugador2
         n = len(cpu.mano)
         total_w = n * (CARTA_W + 15) - 15
-        start_x = (ANCHO - 220) // 2 - total_w // 2
+        start_x = MESA_CX - total_w // 2
 
+        dorso = self.renderer.get_dorso()
         for i in range(n):
             x = start_x + i * (CARTA_W + 15)
-            dorso = self.renderer.get_dorso()
+            self._sombra_carta(x, CPU_Y, CARTA_W, CARTA_H, alpha=60)
             self.screen.blit(dorso, (x, CPU_Y))
 
     def _draw_cartas_jugador(self) -> None:
@@ -887,20 +1015,22 @@ class TrucoGUI:
         rects = self._rects_mano_jugador(mano)
 
         for i, (carta, rect) in enumerate(zip(mano, rects)):
-            y_offset = -15 if i == self.carta_hover else 0
+            lift = int(self._lift[i]) if i < len(self._lift) else 0
+            x, y = rect.x, rect.y - lift
+            self._sombra_carta(x, y, CARTA_W, CARTA_H)
             img = self.renderer.get(carta)
-            self.screen.blit(img, (rect.x, rect.y + y_offset))
-            if i == self.carta_hover:
+            self.screen.blit(img, (x, y))
+            if i == self.carta_hover and self.estado == Estado.PLAYER_TURN:
                 pygame.draw.rect(self.screen, AMARILLO,
-                                 pygame.Rect(rect.x - 2, rect.y + y_offset - 2,
-                                             CARTA_W + 4, CARTA_H + 4), 3, border_radius=6)
+                                 pygame.Rect(x - 3, y - 3, CARTA_W + 6, CARTA_H + 6),
+                                 3, border_radius=8)
 
     def _rects_mano_jugador(self, mano: list[Carta]) -> list[pygame.Rect]:
         n = len(mano)
         if n == 0:
             return []
         total_w = n * (CARTA_W + 20) - 20
-        start_x = (ANCHO - 220) // 2 - total_w // 2
+        start_x = MESA_CX - total_w // 2
         return [
             pygame.Rect(start_x + i * (CARTA_W + 20), MANO_Y, CARTA_W, CARTA_H)
             for i in range(n)
@@ -908,27 +1038,63 @@ class TrucoGUI:
 
     def _draw_mesa(self) -> None:
         """Dibuja las cartas jugadas en la mesa."""
-        mesa_cx = (ANCHO - 220) // 2
         mesa_cy = ALTO // 2
+        slot_j = pygame.Rect(MESA_CX - CARTA_W // 2, mesa_cy + 20, CARTA_W, CARTA_H)
+        slot_cpu = pygame.Rect(MESA_CX - CARTA_W // 2, mesa_cy - CARTA_H - 20, CARTA_W, CARTA_H)
 
-        # Cartas de bazas anteriores (mini)
-        if self.ronda:
-            for bi, baza in enumerate(self.ronda.bazas):
-                ox = mesa_cx - 200 + bi * 140
-                for ji, nombre in enumerate([self.engine.jugador1.nombre, self.engine.jugador2.nombre]):
-                    if nombre in baza.cartas:
-                        carta = baza.cartas[nombre]
-                        img = self.renderer.get(carta, (CARTA_MINI_W, CARTA_MINI_H))
-                        y = mesa_cy + (30 if ji == 0 else -CARTA_MINI_H - 30)
-                        self.screen.blit(img, (ox, y))
+        # Slots fantasma donde caen las cartas de la baza actual
+        for rect, carta in ((slot_cpu, self.carta_cpu_mesa), (slot_j, self.carta_jugador_mesa)):
+            if carta is None:
+                s = pygame.Surface(rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(s, (255, 255, 255, 14), s.get_rect(), border_radius=10)
+                pygame.draw.rect(s, (255, 255, 255, 45), s.get_rect(), 2, border_radius=10)
+                self.screen.blit(s, rect.topleft)
 
-        # Cartas de la baza actual
-        if self.carta_jugador_mesa:
-            img = self.renderer.get(self.carta_jugador_mesa)
-            self.screen.blit(img, (mesa_cx - CARTA_W // 2, mesa_cy + 20))
+        # Mientras se muestra el resultado, se resalta la carta ganadora
+        ganador_baza = None
+        if self.estado == Estado.SHOWING_BAZA and self.ronda and self.ronda.bazas:
+            ganador_baza = self.ronda.bazas[-1].ganador
+
         if self.carta_cpu_mesa:
-            img = self.renderer.get(self.carta_cpu_mesa)
-            self.screen.blit(img, (mesa_cx - CARTA_W // 2, mesa_cy - CARTA_H - 20))
+            self._sombra_carta(slot_cpu.x, slot_cpu.y, CARTA_W, CARTA_H)
+            self.screen.blit(self.renderer.get(self.carta_cpu_mesa), slot_cpu.topleft)
+            if ganador_baza == self.engine.jugador2.nombre:
+                pygame.draw.rect(self.screen, AMARILLO, slot_cpu.inflate(8, 8), 3, border_radius=10)
+        if self.carta_jugador_mesa:
+            self._sombra_carta(slot_j.x, slot_j.y, CARTA_W, CARTA_H)
+            self.screen.blit(self.renderer.get(self.carta_jugador_mesa), slot_j.topleft)
+            if ganador_baza == self.engine.jugador1.nombre:
+                pygame.draw.rect(self.screen, AMARILLO, slot_j.inflate(8, 8), 3, border_radius=10)
+
+        # Bazas anteriores: miniaturas a la izquierda, ganador resaltado
+        if not self.ronda:
+            return
+        bazas = self.ronda.bazas
+        if bazas and self.estado == Estado.SHOWING_BAZA:
+            bazas = bazas[:-1]  # la última se está mostrando grande en el centro
+
+        nombres = [self.engine.jugador1.nombre, self.engine.jugador2.nombre]
+        for bi, baza in enumerate(bazas):
+            ox = 42 + bi * (CARTA_MINI_W + 24)
+            label = self.font_chico.render(f"{bi + 1}ª", True, GRIS)
+            self.screen.blit(label, (ox + CARTA_MINI_W // 2 - label.get_width() // 2,
+                                     mesa_cy - CARTA_MINI_H - 32))
+            for ji, nombre in enumerate(nombres):
+                if nombre not in baza.cartas:
+                    continue
+                img = self.renderer.get(baza.cartas[nombre], (CARTA_MINI_W, CARTA_MINI_H))
+                y = mesa_cy + 8 if ji == 0 else mesa_cy - CARTA_MINI_H - 8
+                self._sombra_carta(ox, y, CARTA_MINI_W, CARTA_MINI_H, alpha=50)
+                if baza.ganador and baza.ganador != nombre:
+                    img = img.copy()
+                    velo = pygame.Surface((CARTA_MINI_W, CARTA_MINI_H), pygame.SRCALPHA)
+                    velo.fill((0, 0, 0, 110))
+                    img.blit(velo, (0, 0))
+                self.screen.blit(img, (ox, y))
+                if baza.ganador == nombre:
+                    pygame.draw.rect(self.screen, DORADO,
+                                     pygame.Rect(ox - 2, y - 2, CARTA_MINI_W + 4, CARTA_MINI_H + 4),
+                                     2, border_radius=6)
 
     def _draw_botones(self) -> None:
         if self.estado != Estado.PLAYER_TURN:
@@ -937,19 +1103,19 @@ class TrucoGUI:
             btn.draw(self.screen, self.font_boton)
 
     def _draw_mensaje(self) -> None:
-        if self.mensaje and self.mensaje_timer > 0:
-            txt = self.font_medio.render(self.mensaje, True, BLANCO)
-            bg_w = txt.get_width() + 40
-            bg_h = txt.get_height() + 16
-            bg_x = (ANCHO - 220) // 2 - bg_w // 2
-            bg_y = ALTO // 2 - 200
+        if not self.mensaje or self.mensaje_timer <= 0:
+            return
+        txt = self.font_medio.render(self.mensaje, True, BLANCO)
+        bg_w = txt.get_width() + 44
+        bg_h = txt.get_height() + 18
 
-            bg_surf = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
-            bg_surf.fill((0, 0, 0, 180))
-            self.screen.blit(bg_surf, (bg_x, bg_y))
-            pygame.draw.rect(self.screen, DORADO,
-                             pygame.Rect(bg_x, bg_y, bg_w, bg_h), 2, border_radius=10)
-            self.screen.blit(txt, (bg_x + 20, bg_y + 8))
+        toast = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
+        pygame.draw.rect(toast, (0, 0, 0, 190), toast.get_rect(), border_radius=12)
+        pygame.draw.rect(toast, DORADO, toast.get_rect(), 2, border_radius=12)
+        toast.blit(txt, (22, 9))
+        if self.mensaje_timer < 0.5:  # fade-out al final
+            toast.set_alpha(int(255 * (self.mensaje_timer / 0.5)))
+        self.screen.blit(toast, (MESA_CX - bg_w // 2, 180))
 
     def _draw_dialogo_envido(self) -> None:
         """Dibuja el diálogo de respuesta al envido."""
@@ -962,10 +1128,7 @@ class TrucoGUI:
         pw, ph = 320, len(self.envido_botones) * 52 + 200
         px = ANCHO // 2 - pw // 2
         py = ALTO // 2 - ph // 2
-        pygame.draw.rect(self.screen, VERDE_OSCURO,
-                         pygame.Rect(px, py, pw, ph), border_radius=12)
-        pygame.draw.rect(self.screen, DORADO,
-                         pygame.Rect(px, py, pw, ph), 3, border_radius=12)
+        self._draw_panel(pygame.Rect(px, py, pw, ph))
 
         canto_label = self.envido_secuencia[-1].replace("_", " ").upper()
         header = self.font_medio.render(f"Te cantaron {canto_label}", True, AMARILLO)
@@ -1007,10 +1170,7 @@ class TrucoGUI:
         pw, ph = 320, len(self.truco_botones) * 52 + 80
         px = ANCHO // 2 - pw // 2
         py = ALTO // 2 - ph // 2
-        pygame.draw.rect(self.screen, VERDE_OSCURO,
-                         pygame.Rect(px, py, pw, ph), border_radius=12)
-        pygame.draw.rect(self.screen, DORADO,
-                         pygame.Rect(px, py, pw, ph), 3, border_radius=12)
+        self._draw_panel(pygame.Rect(px, py, pw, ph))
 
         header = self.font_medio.render(
             f"¡{self.truco_cantor} canta {self.truco_nivel.upper()}!",
@@ -1026,16 +1186,31 @@ class TrucoGUI:
 
     def _draw_game_over(self) -> None:
         overlay = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 160))
+        overlay.fill((0, 0, 0, 170))
         self.screen.blit(overlay, (0, 0))
 
         ganador = self.engine.ganador_juego()
-        if ganador:
-            txt1 = self.font_titulo.render(f"¡{ganador.nombre} GANA!", True, DORADO)
-            txt2 = self.font_grande.render(f"Puntaje: {ganador.puntos}", True, BLANCO)
-            txt3 = self.font_medio.render("Click para jugar de nuevo", True, GRIS)
+        if not ganador:
+            return
 
-            cy = ALTO // 2
-            self.screen.blit(txt1, (ANCHO // 2 - txt1.get_width() // 2, cy - 60))
-            self.screen.blit(txt2, (ANCHO // 2 - txt2.get_width() // 2, cy))
-            self.screen.blit(txt3, (ANCHO // 2 - txt3.get_width() // 2, cy + 50))
+        panel = pygame.Rect(0, 0, 460, 250)
+        panel.center = (ANCHO // 2, ALTO // 2)
+        self._draw_panel(panel)
+
+        txt1 = self.font_titulo.render(f"¡{ganador.nombre} gana!", True, DORADO)
+        self.screen.blit(txt1, (panel.centerx - txt1.get_width() // 2, panel.y + 32))
+
+        j1, j2 = self.engine.jugador1, self.engine.jugador2
+        marcador = self.font_grande.render(
+            f"{j1.nombre} {j1.puntos}  —  {j2.puntos} {j2.nombre}", True, BLANCO
+        )
+        self.screen.blit(marcador, (panel.centerx - marcador.get_width() // 2, panel.y + 105))
+
+        pygame.draw.line(self.screen, DORADO_SUAVE,
+                         (panel.x + 40, panel.y + 165), (panel.right - 40, panel.y + 165), 1)
+
+        # Parpadeo suave del hint
+        alpha = 150 + int(105 * abs((time.time() % 1.6) / 0.8 - 1))
+        txt3 = self.font_medio.render("Hacé click para jugar de nuevo", True, GRIS)
+        txt3.set_alpha(alpha)
+        self.screen.blit(txt3, (panel.centerx - txt3.get_width() // 2, panel.y + 185))
